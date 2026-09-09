@@ -29,9 +29,16 @@ async function load(){
   try{
     const p=await json("/api/players");
     const list=Array.isArray(p.players)?p.players:[];
-    document.querySelector("#playersPanel").innerHTML=list.length
-      ?list.slice(0,50).map(x=>row(playerLabel(x),statusValue(x))).join("")
-      :"Keine Spieler online / keine Player-Daten verfügbar.";
+    if(list.length){
+      document.querySelector("#playersPanel").innerHTML=list.slice(0,50)
+        .map(x=>row(playerLabel(x),statusValue(x))).join("");
+    }else{
+      const count = Number(document.querySelector("#playersCount").textContent.split("/")[0]);
+      document.querySelector("#playersPanel").innerHTML =
+        Number.isFinite(count) && count > 0
+          ? `<div class="row"><span>Online-Spieler</span><b>${count}</b></div><div class="muted">Die API liefert aktuell die Anzahl, aber keine Spielerliste.</div>`
+          : "Keine Spieler online / keine Player-Daten verfügbar.";
+    }
   }catch(e){document.querySelector("#playersPanel").innerHTML=`<span class="loading">${escapeHtml(e.message)}</span>`}
 
   for(const [id,kind] of [["kills","kills"],["playtime","playtime"]]){

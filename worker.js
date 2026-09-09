@@ -71,10 +71,27 @@ function findArray(value, preferred = [], depth = 0) {
 }
 
 function findScalar(value, keys, depth = 0) {
-  if (depth > 8 || value == null || !isObject(value)) return undefined;
-  for (const key of keys) {
-    if (value[key] !== undefined && value[key] !== null) return value[key];
+  if (depth > 10 || value == null) return undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findScalar(item, keys, depth + 1);
+      if (found !== undefined) return found;
+    }
+    return undefined;
   }
+  if (!isObject(value)) return undefined;
+
+  const normalized = Object.fromEntries(
+    Object.entries(value).map(([k, v]) => [
+      String(k).toLowerCase().replace(/[^a-z0-9]/g, ""), v
+    ])
+  );
+
+  for (const key of keys) {
+    const nk = String(key).toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (normalized[nk] !== undefined && normalized[nk] !== null) return normalized[nk];
+  }
+
   for (const key of Object.keys(value)) {
     const found = findScalar(value[key], keys, depth + 1);
     if (found !== undefined) return found;
@@ -82,24 +99,38 @@ function findScalar(value, keys, depth = 0) {
   return undefined;
 }
 
-function normalizeServer(data) {
-  const playersRaw = findScalar(data, ["players", "onlinePlayers", "playerCount", "online_players", "currentPlayers"]);
-  const maxRaw = findScalar(data, ["maxPlayers", "max_players", "slots", "max", "maxPlayerCount"]);
-  const statusRaw = findScalar(data, ["status", "serverStatus"]);
-  const onlineRaw = findScalar(data, ["online", "isOnline", "serverOnline"]);
+function countFromPayload(data) {
+  const raw = findScalar(data, [
+    "onlinePlayers","playersOnline","playerCount","currentPlayers",
+    "onlineCount","currentPlayerCount","players"
+  ]);
+  if (typeof raw === "number") return raw;
+  if (typeof raw === "string" && raw.trim() !== "" && Number.isFinite(Number(raw))) return Number(raw);
+  if (Array.isArray(raw)) return raw.length;
+  if (isObject(raw)) {
+    const nested = findScalar(raw, ["online","count","total","current"]);
+    if (nested !== undefined && Number.isFinite(Number(nested))) return Number(nested);
+  }
+  return null;
+}
 
-  const players = Number(playersRaw);
+function normalizeServer(data) {
+  const players = countFromPayload(data);
+  const maxRaw = findScalar(data, ["maxPlayers","maxPlayerCount","slots","maxSlots"]);
+  const statusRaw = findScalar(data, ["status","serverStatus","state"]);
+  const onlineRaw = findScalar(data, ["online","isOnline","serverOnline"]);
+
   const maxPlayers = Number(maxRaw);
   const status = typeof statusRaw === "string" ? statusRaw.toLowerCase() : "";
 
   let online;
   if (typeof onlineRaw === "boolean") online = onlineRaw;
-  else if (status) online = !["offline", "down", "stopped", "unavailable", "maintenance"].includes(status);
-  else online = true; // HTTP 200 from /server is our fallback signal.
+  else if (status) online = !["offline","down","stopped","unavailable","maintenance"].includes(status);
+  else online = true;
 
   return {
     online,
-    players: Number.isFinite(players) ? players : null,
+    players,
     maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : null,
     status: statusRaw ?? null
   };
@@ -115,7 +146,13 @@ function rankingValue(x, kind) {
 }
 
 function normalizePlayers(data) {
-  return findArray(data, ["players", "onlinePlayers", "online_players"]) || [];
+  const arr = findArray(data, ["players","onlinePlayers","online_players","items","data","results"]);
+  if (arr) return arr;
+  if (isObject(data)) {
+    const candidate = data.player ?? data.onlinePlayer ?? data.currentPlayer;
+    if (isObject(candidate)) return [candidate];
+  }
+  return [];
 }
 
 function normalizeLeaderboard(data, kind) {
