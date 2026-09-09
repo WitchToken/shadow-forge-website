@@ -13,7 +13,7 @@ async function load(){
   document.querySelector("#dot").className=s.online?"online":"offline";
   document.querySelector("#status").textContent=s.online?"SERVER ONLINE":"SERVER OFFLINE";
   document.querySelector("#playersCount").textContent=s.players_available?`${s.players}/${s.maxPlayers}`:"—";
-  document.querySelector("#serverMessage").textContent=s.message||"Shadow Forge API";
+  document.querySelector("#serverMessage").textContent=s.endpoint?`Prisoner Bot · ${s.endpoint}`:(s.message||"Shadow Forge API");
  }catch(e){
   document.querySelector("#dot").className="offline";
   document.querySelector("#status").textContent="API FEHLER";
@@ -21,7 +21,7 @@ async function load(){
  }
  try{
   const p=await json("/api/players");
-  const list=p.players||[];
+  const list=p.players||p.data?.players||p.data?.items||p.data?.results||p.data||[];
   document.querySelector("#playersPanel").innerHTML=list.length?list.map(x=>row(x.name||x.player||"Player",x.status||"online")).join(""):"Keine Player-Daten verfügbar.";
  }catch(e){document.querySelector("#playersPanel").innerHTML=`<span class="loading">${escapeHtml(e.message)}</span>`}
  for(const [id,path] of [["kills","/api/leaderboard?kills=1"],["playtime","/api/leaderboard?playtime=1"]]){

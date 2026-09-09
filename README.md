@@ -1,28 +1,26 @@
-# Shadow Forge v4 · Prisoner Bot API
+# Shadow Forge v5 · Auto API
+
+Diese Version verwendet **einen einzigen Prisoner-Bot-Public-API-Token** (`PRISONER_API_TOKEN`).
 
 ## Cloudflare
-Root: `/`
-Build: none
-Deploy: `npx wrangler deploy`
 
-## Secret
-Keep the existing Cloudflare Secret:
-`PRISONER_API_TOKEN`
+Secret:
+- `PRISONER_API_TOKEN` = dein bestehender Token
 
-## Variables still required
-The Prisoner Bot account page confirms the API base URL:
-`https://scum.theprisonerbot.com`
+Optional, sobald die echten Routen bestätigt sind:
+- `PRISONER_SERVER_PATH`
+- `PRISONER_PLAYERS_PATH`
+- `PRISONER_LEADERBOARD_PATH`
 
-The public feature documentation confirms token auth via `PRISONER-BOT-TOKEN`, player data, leaderboards, economy, packages and server commands.
+V5 versucht zunächst automatisch mehrere übliche Read-Only-Routen. Damit können wir die vorhandene API-Verbindung testen, ohne einen zweiten Token anzulegen.
 
-The exact resource paths are not exposed on the public feature page, so this build deliberately does NOT guess them.
+## Test
 
-Configure these Worker Variables once the official API paths are confirmed:
-- PRISONER_SERVER_PATH
-- PRISONER_PLAYERS_PATH
-- PRISONER_LEADERBOARD_PATH
+- `/api/health` → Token vorhanden?
+- `/api/server` → Serverstatus
+- `/api/players` → Spieler
+- `/api/leaderboard?kills=1` → Kills
+- `/api/leaderboard?playtime=1` → Playtime
+- `/api/prisoner-discovery` → zeigt nur gefundene Endpunkte/HTTP-Status, niemals den Token
 
-The Worker then proxies those read-only requests server-side. The token never reaches the browser.
-
-## Safety
-No write/admin endpoint is exposed in this version.
+Der Token bleibt ausschließlich serverseitig im Cloudflare Worker.
