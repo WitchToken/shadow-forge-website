@@ -1,106 +1,69 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Shadow Forge – deutscher SCUM PvE/PvP Server mit Events, 3x Loot und Community-System.">
-  <title>Shadow Forge · SCUM Server</title>
-  <link rel="stylesheet" href="/css/style.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shadow Forge · Live Hub</title>
+<meta name="description" content="Shadow Forge SCUM Live Hub">
+<link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="#home"><span>⚒</span> SHADOW FORGE</a>
-    <nav>
-      <a href="#server">Server</a>
-      <a href="#features">Features</a>
-      <a href="#events">Events</a>
-      <a href="#rules">Regeln</a>
-      <a href="#discord">Discord</a>
-    </nav>
-  </header>
+<header class="topbar">
+  <a class="brand" href="#home">⚒ SHADOW FORGE</a>
+  <nav><a href="#server">Server</a><a href="#players">Players</a><a href="#ranking">Ranking</a><a href="#events">Events</a></nav>
+</header>
 
-  <main>
-    <section id="home" class="hero">
-      <div class="hero-glow"></div>
-      <div class="hero-content">
-        <p class="eyebrow">[GER/ENG] · SCUM COMMUNITY SERVER</p>
-        <h1>ENTER THE<br><strong>SHADOW FORGE</strong></h1>
-        <p class="lead">PvE/PvP · Events · 3× Loot · Welcome Pack · aktive Community</p>
-        <div class="actions">
-          <a class="btn primary" href="#server">SERVER STATUS</a>
-          <a class="btn ghost" href="https://discord.com/" target="_blank" rel="noopener">DISCORD</a>
-        </div>
-      </div>
-    </section>
+<main>
+<section id="home" class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">SHADOW FORGE · LIVE HUB</p>
+    <h1>THE FORGE<br><span>IS ALIVE.</span></h1>
+    <p>Die öffentliche Zentrale für unseren SCUM-Server – Live-Daten, Rankings, Events und später Bounties & Prisoner-System.</p>
+    <div class="actions"><a class="btn primary" href="#server">LIVE STATUS</a><a class="btn ghost" href="https://www.gs4u.net/de/s/436818" target="_blank" rel="noopener">GS4U</a></div>
+  </div>
+</section>
 
-    <section id="server" class="section">
-      <div class="section-head">
-        <p class="eyebrow">LIVE CORE</p>
-        <h2>Server Status</h2>
-      </div>
-      <div class="server-card">
-        <div>
-          <div class="status-line"><span id="status-dot" class="dot"></span><span id="status-text">SYSTEM CHECK</span></div>
-          <h3>SHADOW FORGE</h3>
-          <p class="muted">[GER/ENG] · PvE/PvP · EVENTS · 3× LOOT</p>
-        </div>
-        <div class="stats">
-          <div><span>Spieler</span><strong id="players">—</strong></div>
-          <div><span>Server</span><strong id="game">SCUM</strong></div>
-          <div><span>Region</span><strong>EU</strong></div>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="https://www.gs4u.net/de/s/436818" target="_blank" rel="noopener">GS4U SERVERSEITE</a>
-          <button class="btn ghost" id="refresh">STATUS AKTUALISIEREN</button>
-        </div>
-        <p id="status-note" class="tiny"></p>
-      </div>
-    </section>
+<section id="server" class="section">
+  <p class="eyebrow">LIVE CORE</p><h2>Server Status</h2>
+  <div class="dashboard">
+    <div class="status-card">
+      <div class="status"><i id="dot"></i><strong id="status">CHECKING</strong></div>
+      <h3>SHADOW FORGE</h3>
+      <p class="muted">SCUM · PvE/PvP · 3× Loot · GER/ENG</p>
+      <div class="metric"><span>Spieler</span><b id="playersCount">—</b></div>
+      <small id="serverMessage">API wird geprüft …</small>
+    </div>
+    <div class="mini-grid">
+      <div class="tile"><span>🎮</span><b>SCUM</b><small>Game</small></div>
+      <div class="tile"><span>💎</span><b>3×</b><small>Loot</small></div>
+      <div class="tile"><span>🌍</span><b>EU</b><small>Region</small></div>
+      <div class="tile"><span>🤖</span><b>API</b><small>Prisoner Bot</small></div>
+    </div>
+  </div>
+</section>
 
-    <section id="features" class="section">
-      <div class="section-head"><p class="eyebrow">THE FORGE</p><h2>Was dich erwartet</h2></div>
-      <div class="grid three">
-        <article class="card"><span>⚔️</span><h3>PvE / PvP</h3><p>Eine Mischung aus gemeinschaftlichem Survival und ausgewählten PvP-Bereichen.</p></article>
-        <article class="card"><span>💎</span><h3>3× Loot</h3><p>Mehr Loot, mehr Möglichkeiten und weniger unnötiges Farmen.</p></article>
-        <article class="card"><span>🎃</span><h3>Events</h3><p>Community-Events, Sonderaktionen und besondere Orte auf der Insel.</p></article>
-        <article class="card"><span>🎁</span><h3>Welcome Pack</h3><p>Neue Spieler sollen schnell ins Spiel kommen und die Community kennenlernen.</p></article>
-        <article class="card"><span>🌊</span><h3>Witchtoken Bay</h3><p>Ein eigener Community-Ort für Treffen, Events und besondere Aktionen.</p></article>
-        <article class="card"><span>🕯️</span><h3>Shadow Lore</h3><p>Die Welt bekommt nach und nach eigene Geschichten, Fraktionen und Systeme.</p></article>
-      </div>
-    </section>
+<section id="players" class="section">
+  <p class="eyebrow">PLAYER DATA</p><h2>Spieler</h2>
+  <div id="playersPanel" class="panel"><div class="loading">Spielerdaten werden geladen …</div></div>
+</section>
 
-    <section id="events" class="section split">
-      <div>
-        <p class="eyebrow">CALENDAR</p><h2>Events</h2>
-        <p class="muted">Hier entsteht später unser dynamischer Event-Kalender. Die Daten kommen dann aus der Shadow-Forge-API.</p>
-      </div>
-      <div class="feature-panel"><strong>⚒ EVENT SYSTEM</strong><span>Demnächst: Kalender · Anmeldungen · Belohnungen</span></div>
-    </section>
+<section id="ranking" class="section">
+  <p class="eyebrow">COMPETITION</p><h2>Leaderboard</h2>
+  <div class="rank-grid">
+    <div class="panel"><h3>⚔️ Top Killer</h3><div id="kills" class="list"><span class="loading">Wird geladen …</span></div></div>
+    <div class="panel"><h3>🎯 Playtime</h3><div id="playtime" class="list"><span class="loading">Wird geladen …</span></div></div>
+  </div>
+</section>
 
-    <section id="rules" class="section">
-      <div class="section-head"><p class="eyebrow">CODE OF THE FORGE</p><h2>Regeln</h2></div>
-      <div class="grid two">
-        <article class="card"><h3>01 · Respekt</h3><p>Behandle andere Spieler fair. Kein gezieltes Belästigen, Trolling oder toxisches Verhalten.</p></article>
-        <article class="card"><h3>02 · PvP</h3><p>PvP findet nur in den dafür vorgesehenen Bereichen und nach den Serverregeln statt.</p></article>
-        <article class="card"><h3>03 · Exploits</h3><p>Bugusing, Cheating und das absichtliche Ausnutzen von Exploits sind verboten.</p></article>
-        <article class="card"><h3>04 · Admins</h3><p>Entscheidungen des Teams sind während laufender Situationen zu respektieren. Beschwerden bitte über Discord.</p></article>
-      </div>
-    </section>
-
-    <section id="discord" class="section discord">
-      <div>
-        <p class="eyebrow">JOIN THE COMMUNITY</p>
-        <h2>Bereit für die Forge?</h2>
-        <p>Discord wird später mit dem echten Shadow-Forge-Invite verknüpft.</p>
-      </div>
-      <a class="btn primary" href="https://discord.com/" target="_blank" rel="noopener">DISCORD ÖFFNEN</a>
-    </section>
-  </main>
-
-  <footer>
-    <span>⚒ SHADOW FORGE</span>
-    <span>SCUM · PvE/PvP · EVENTS</span>
-  </footer>
-  <script src="/js/main.js"></script>
+<section id="events" class="section">
+  <p class="eyebrow">COMING NEXT</p><h2>Shadow Forge Systems</h2>
+  <div class="cards">
+    <article><b>☠️ BOUNTY BOARD</b><span>Kopfgelder auf der Website</span></article>
+    <article><b>🏴 PRISONER SYSTEM</b><span>Gefängnis, Kopfgeld & Community-Lore</span></article>
+    <article><b>🎉 EVENTS</b><span>Eventkalender mit Rewards</span></article>
+  </div>
+</section>
+</main>
+<footer>⚒ SHADOW FORGE · SCUM · PvE/PvP · EVENTS</footer>
+<script src="/js/main.js"></script>
 </body>
 </html>

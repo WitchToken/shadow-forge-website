@@ -1,29 +1,34 @@
-const statusDot=document.querySelector("#status-dot");
-const statusText=document.querySelector("#status-text");
-const players=document.querySelector("#players");
-const note=document.querySelector("#status-note");
-const refresh=document.querySelector("#refresh");
-
-async function loadStatus(){
-  statusText.textContent="SYSTEM CHECK";
-  statusDot.className="dot";
-  note.textContent="Prüfe Shadow-Forge-Core …";
-  try{
-    const res=await fetch("/api/server",{cache:"no-store"});
-    if(!res.ok) throw new Error("API "+res.status);
-    const data=await res.json();
-    statusDot.className="dot "+(data.online?"online":"offline");
-    statusText.textContent=data.online?"SERVER ONLINE":"SERVER OFFLINE";
-    players.textContent=(data.players_available===false)?"—":`${data.players}/${data.maxPlayers}`;
-    note.textContent=data.players_available===false
-      ? "Spielerzahl aktuell nicht verfügbar. GS4u PLUS wird dafür nicht vorausgesetzt."
-      : "Datenquelle: Shadow Forge API";
-  }catch(e){
-    statusDot.className="dot offline";
-    statusText.textContent="API NICHT ERREICHBAR";
-    players.textContent="—";
-    note.textContent="Die Website läuft, aber die Server-API antwortet gerade nicht.";
-  }
+async function json(url){
+ const r=await fetch(url,{cache:"no-store"});
+ const data=await r.json().catch(()=>({}));
+ if(!r.ok) throw new Error(data.error||`HTTP ${r.status}`);
+ return data;
 }
-refresh?.addEventListener("click",loadStatus);
-loadStatus();
+function row(name,value){return `<div class="row"><span>${escapeHtml(name)}</span><b>${escapeHtml(String(value))}</b></div>`}
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+
+async function load(){
+ try{
+  const s=await json("/api/server");
+  document.querySelector("#dot").className=s.online?"online":"offline";
+  document.querySelector("#status").textContent=s.online?"SERVER ONLINE":"SERVER OFFLINE";
+  document.querySelector("#playersCount").textContent=s.players_available?`${s.players}/${s.maxPlayers}`:"—";
+  document.querySelector("#serverMessage").textContent=s.message||"Shadow Forge API";
+ }catch(e){
+  document.querySelector("#dot").className="offline";
+  document.querySelector("#status").textContent="API FEHLER";
+  document.querySelector("#serverMessage").textContent=e.message;
+ }
+ try{
+  const p=await json("/api/players");
+  const list=p.players||[];
+  document.querySelector("#playersPanel").innerHTML=list.length?list.map(x=>row(x.name||x.player||"Player",x.status||"online")).join(""):"Keine Player-Daten verfügbar.";
+ }catch(e){document.querySelector("#playersPanel").innerHTML=`<span class="loading">${escapeHtml(e.message)}</span>`}
+ for(const [id,path] of [["kills","/api/leaderboard?kills=1"],["playtime","/api/leaderboard?playtime=1"]]){
+  try{
+   const d=await json(path); const list=d.data||d.players||d.leaderboard||[];
+   document.querySelector("#"+id).innerHTML=list.length?list.slice(0,10).map((x,i)=>row(`#${i+1} ${x.name||x.player||"Player"}`,x.kills??x.playtime??x.value??"—")).join(""):"Keine Daten verfügbar.";
+  }catch(e){document.querySelector("#"+id).innerHTML=`<span class="loading">${escapeHtml(e.message)}</span>`}
+ }
+}
+load(); setInterval(load,60000);

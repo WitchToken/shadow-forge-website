@@ -1,27 +1,28 @@
-# Shadow Forge Website v3
+# Shadow Forge v4 · Prisoner Bot API
 
-Cloudflare Workers Static Assets + Worker API.
+## Cloudflare
+Root: `/`
+Build: none
+Deploy: `npx wrangler deploy`
 
-## Cloudflare Build settings
+## Secret
+Keep the existing Cloudflare Secret:
+`PRISONER_API_TOKEN`
 
-- Root directory: `/`
-- Build command: none
-- Deploy command: `npx wrangler deploy`
-- Non-production deploy: `npx wrangler versions upload`
-- Production branch: `main`
+## Variables still required
+The Prisoner Bot account page confirms the API base URL:
+`https://scum.theprisonerbot.com`
 
-## API
+The public feature documentation confirms token auth via `PRISONER-BOT-TOKEN`, player data, leaderboards, economy, packages and server commands.
 
-- `/api/health`
-- `/api/server`
+The exact resource paths are not exposed on the public feature page, so this build deliberately does NOT guess them.
 
-The current `/api/server` intentionally does not invent live player numbers. GS4u JSON/JSONP access requires the relevant GS4u API entitlement, so this version exposes verified Shadow Forge metadata and leaves player counts unavailable until we add a legitimate data source.
+Configure these Worker Variables once the official API paths are confirmed:
+- PRISONER_SERVER_PATH
+- PRISONER_PLAYERS_PATH
+- PRISONER_LEADERBOARD_PATH
 
-## Next
+The Worker then proxies those read-only requests server-side. The token never reaches the browser.
 
-1. Add real Shadow Forge branding assets.
-2. Replace placeholder Discord URL.
-3. Add event data.
-4. Add a database/API layer.
-5. Add server telemetry when a supported source is available.
-6. Add Prisoner/Bounty systems.
+## Safety
+No write/admin endpoint is exposed in this version.

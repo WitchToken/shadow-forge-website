@@ -8,13 +8,6 @@
     "directory": ".",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"],
-    "exclude": [
-      ".git/**",
-      ".wrangler/**",
-      "worker.js",
-      "wrangler.jsonc",
-      "README.md",
-      ".assetsignore"
-    ]
+    "exclude": [".git/**",".wrangler/**","worker.js","wrangler.jsonc","README.md",".assetsignore",".gitignore"]
   }
 }
