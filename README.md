@@ -1,26 +1,25 @@
-# Shadow Forge v5 · Auto API
+# Shadow Forge v6 · Live API
 
-Diese Version verwendet **einen einzigen Prisoner-Bot-Public-API-Token** (`PRISONER_API_TOKEN`).
+Cloudflare Worker + static site for Shadow Forge SCUM.
 
-## Cloudflare
+## Prisoner Bot API
+Base URL: `https://scum.theprisonerbot.com`
 
-Secret:
-- `PRISONER_API_TOKEN` = dein bestehender Token
+The Worker uses one Cloudflare secret only:
+- `PRISONER_API_TOKEN`
 
-Optional, sobald die echten Routen bestätigt sind:
-- `PRISONER_SERVER_PATH`
-- `PRISONER_PLAYERS_PATH`
-- `PRISONER_LEADERBOARD_PATH`
+Confirmed read-only endpoints:
+- `/server`
+- `/players`
+- `/leaderboard/kills`
+- `/leaderboard/playtime`
 
-V5 versucht zunächst automatisch mehrere übliche Read-Only-Routen. Damit können wir die vorhandene API-Verbindung testen, ohne einen zweiten Token anzulegen.
+Public Worker routes:
+- `/api/health`
+- `/api/server`
+- `/api/players`
+- `/api/leaderboard?type=kills`
+- `/api/leaderboard?type=playtime`
+- `/api/prisoner-discovery`
 
-## Test
-
-- `/api/health` → Token vorhanden?
-- `/api/server` → Serverstatus
-- `/api/players` → Spieler
-- `/api/leaderboard?kills=1` → Kills
-- `/api/leaderboard?playtime=1` → Playtime
-- `/api/prisoner-discovery` → zeigt nur gefundene Endpunkte/HTTP-Status, niemals den Token
-
-Der Token bleibt ausschließlich serverseitig im Cloudflare Worker.
+The v6 parser recursively handles common Prisoner Bot JSON wrappers (`data`, `results`, `items`, `players`, `leaderboard`, etc.) so the frontend does not depend on one exact nesting level.
