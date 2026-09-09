@@ -1,4 +1,4 @@
-const BASE = "https://scum.theprisonerbot.com";
+const BASE = "https://scum.theprisonerbot.com/api";
 
 const PATHS = {
   server: "/server",
@@ -237,23 +237,6 @@ export default {
         const leaderboard = normalizeLeaderboard(result.data, kind);
         return json({ ok: true, source: "Prisoner Bot", type: kind, endpoint: result.endpoint, count: leaderboard.length, leaderboard });
       } catch (e) { return json({ ok: false, error: e.message }, 503); }
-    }
-
-    if (url.pathname === "/api/debug-api") {
-      const target = url.searchParams.get("target") || "server";
-      const path = PATHS[target];
-      if (!path) return json({ ok:false, error:"Ungültiges target" }, 400);
-      try {
-        const result = await prisonerFetch(env, path);
-        return json({
-          ok: result.ok,
-          endpoint: result.endpoint,
-          status: result.status,
-          data: result.data
-        }, result.ok ? 200 : result.status);
-      } catch (e) {
-        return json({ ok:false, error:e.message }, 503);
-      }
     }
 
     if (url.pathname === "/api/prisoner-discovery") {

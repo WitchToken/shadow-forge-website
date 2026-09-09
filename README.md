@@ -27,3 +27,7 @@ The v6 parser recursively handles common Prisoner Bot JSON wrappers (`data`, `re
 
 ## V6.2 diagnostic
 Adds tolerant recursive parsing and `/api/debug-api?target=server|players|kills|playtime` to inspect the exact Prisoner Bot JSON response while troubleshooting. Remove/disable this debug route after diagnosis.
+
+
+## V6.3
+Corrected the Prisoner Bot API base URL to `https://scum.theprisonerbot.com/api`. The previous `/server` request reached the Admin frontend HTML because `/api` was missing from the base URL. Removed the temporary debug endpoint for production.
