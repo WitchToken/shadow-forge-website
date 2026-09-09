@@ -1,8 +1,11 @@
-# Shadow Forge V6.6 – RCON Auth Test
+# Shadow Forge V6.7 – RCON Live Status
 
-This version tests the Prisoner Bot RCON dashboard endpoint with Bearer authentication because the browser request uses `Authorization: Bearer ...`, while the public API uses `PRISONER-BOT-TOKEN`.
+Uses the confirmed Prisoner Bot RCON dashboard route:
+`/api/admin/rcon-dashboard/status`
 
-Test route after deployment:
-`/api/rcon-server-info`
+For RCON dashboard requests the Worker sends `Authorization: Bearer <PRISONER_API_TOKEN>`. The same Cloudflare secret name is retained; no token is returned by the API.
 
-No token is returned by the debug route.
+Test after deployment:
+`/api/rcon-status`
+
+Expected live payload includes `connected`, `players`, `playerList`, and `timestamp`.

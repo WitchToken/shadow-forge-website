@@ -3,6 +3,7 @@ const BASE = "https://scum.theprisonerbot.com/api";
 const PATHS = {
   server: "/server",
   rconServerInfo: "/admin/rcon-dashboard/server-info",
+  rconStatus: "/admin/rcon-dashboard/status",
   players: "/players",
   kills: "/leaderboard/kills",
   playtime: "/leaderboard/playtime"
@@ -30,12 +31,22 @@ async function prisonerFetch(env, path, query = "") {
   const target = new URL(path, BASE);
   if (query) target.search = query;
 
+  const isRconDashboard = path.startsWith("/admin/rcon-dashboard/");
+  const headers = {
+    "Accept": "application/json"
+  };
+
+  if (isRconDashboard) {
+    // The RCON dashboard frontend authenticates with Authorization: Bearer.
+    // Keep the same secret name in Cloudflare; never expose the token in responses.
+    headers["Authorization"] = `Bearer ${env.PRISONER_API_TOKEN}`;
+  } else {
+    headers["PRISONER-BOT-TOKEN"] = env.PRISONER_API_TOKEN;
+  }
+
   const response = await fetch(target, {
     method: "GET",
-    headers: {
-      "PRISONER-BOT-TOKEN": env.PRISONER_API_TOKEN,
-      "Accept": "application/json"
-    }
+    headers
   });
 
   const text = await response.text();
@@ -225,38 +236,53 @@ export default {
       } catch (e) { return json({ ok: false, error: e.message }, 503); }
     }
 
+    if (url.pathname === "/api/rcon-status") {
+      try {
+        const result = await prisonerFetch(env, PATHS.rconStatus, url.search.slice(1));
+        return json({
+          ok: result.ok,
+          status: result.status,
+          endpoint: result.endpoint,
+          data: result.data
+        }, result.ok ? 200 : result.status);
+      } catch (e) { return json({ ok: false, error: e.message }, 503); }
+    }
+
     if (url.pathname === "/api/server") {
       try {
         // The public /server endpoint reports server state, but the live RCON
         // dashboard exposes the real-time player count and ServerInfo data.
-        const [publicResult, rconResult] = await Promise.all([
+        const [publicResult, rconResult, rconStatusResult] = await Promise.all([
           prisonerFetch(env, PATHS.server),
-          prisonerFetch(env, PATHS.rconServerInfo)
+          prisonerFetch(env, PATHS.rconServerInfo),
+          prisonerFetch(env, PATHS.rconStatus)
         ]);
 
-        if (!publicResult.ok && !rconResult.ok) {
+        if (!publicResult.ok && !rconResult.ok && !rconStatusResult.ok) {
           return json({
             ok: false,
             public_api: { endpoint: publicResult.endpoint, status: publicResult.status, data: publicResult.data },
-            rcon: { endpoint: rconResult.endpoint, status: rconResult.status, data: rconResult.data }
+            rcon: { endpoint: rconResult.endpoint, status: rconResult.status, data: rconResult.data },
+            rcon_status: { endpoint: rconStatusResult.endpoint, status: rconStatusResult.status, data: rconStatusResult.data }
           }, 502);
         }
 
         const publicServer = publicResult.ok ? normalizeServer(publicResult.data) : {};
-        const rcon = rconResult.ok ? (
-          isObject(rconResult.data) ? rconResult.data :
-          (isObject(rconResult.data?.data) ? rconResult.data.data : {})
-        ) : {};
-        const players = findNumeric(rcon, ["playersOnline", "onlinePlayers", "playerCount"]);
+        const rcon = rconResult.ok && isObject(rconResult.data) ? rconResult.data : {};
+        const live = rconStatusResult.ok && isObject(rconStatusResult.data) ? rconStatusResult.data : {};
+        const players = findNumeric(live, ["players", "playersOnline", "onlinePlayers", "playerCount"]);
+        const playerList = Array.isArray(live.playerList) ? live.playerList : [];
 
         return json({
           ok: true,
           source: "Prisoner Bot",
-          endpoint: PATHS.rconServerInfo,
-          online: publicServer.online ?? true,
+          endpoint: PATHS.rconStatus,
+          online: live.connected === true ? true : (publicServer.online ?? true),
           players: players ?? publicServer.players ?? null,
           maxPlayers: publicServer.maxPlayers ?? null,
-          status: rcon.status ?? publicServer.status ?? null,
+          status: live.connected === true ? "connected" : (rcon.status ?? publicServer.status ?? null),
+          playerList,
+          rcon_connected: live.connected ?? null,
           gameTime: rcon.gameTime ?? null,
           timeSpeed: rcon.timeSpeed ?? null,
           sunrise: rcon.sunrise ?? null,
@@ -271,7 +297,7 @@ export default {
           windIntensity: rcon.windIntensity ?? null,
           version: rcon.version ?? null,
           players_available: players !== undefined || publicServer.players !== null,
-          rcon_ok: rconResult.ok,
+          rcon_ok: rconStatusResult.ok || rconResult.ok,
           public_api_ok: publicResult.ok
         });
       } catch (e) { return json({ ok: false, error: e.message }, 503); }
