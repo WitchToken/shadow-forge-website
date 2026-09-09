@@ -71,7 +71,8 @@ function findArray(value, preferred = [], depth = 0) {
 }
 
 function findScalar(value, keys, depth = 0) {
-  if (depth > 10 || value == null) return undefined;
+  if (depth > 12 || value == null) return undefined;
+
   if (Array.isArray(value)) {
     for (const item of value) {
       const found = findScalar(item, keys, depth + 1);
@@ -79,63 +80,104 @@ function findScalar(value, keys, depth = 0) {
     }
     return undefined;
   }
+
   if (!isObject(value)) return undefined;
 
   const normalized = Object.fromEntries(
-    Object.entries(value).map(([k, v]) => [
-      String(k).toLowerCase().replace(/[^a-z0-9]/g, ""), v
+    Object.entries(value).map(([k,v]) => [
+      String(k).toLowerCase().replace(/[^a-z0-9]/g,""), v
     ])
   );
 
   for (const key of keys) {
-    const nk = String(key).toLowerCase().replace(/[^a-z0-9]/g, "");
+    const nk=String(key).toLowerCase().replace(/[^a-z0-9]/g,"");
     if (normalized[nk] !== undefined && normalized[nk] !== null) return normalized[nk];
   }
 
   for (const key of Object.keys(value)) {
-    const found = findScalar(value[key], keys, depth + 1);
-    if (found !== undefined) return found;
+    const found=findScalar(value[key],keys,depth+1);
+    if(found !== undefined) return found;
   }
   return undefined;
 }
 
-function countFromPayload(data) {
-  const raw = findScalar(data, [
-    "onlinePlayers","playersOnline","playerCount","currentPlayers",
-    "onlineCount","currentPlayerCount","players"
+function findNumeric(value, keys, depth = 0) {
+  const raw=findScalar(value,keys,depth);
+  if(typeof raw==="number" && Number.isFinite(raw)) return raw;
+  if(typeof raw==="string" && raw.trim()!=="" && Number.isFinite(Number(raw))) return Number(raw);
+  return undefined;
+}
+
+function countOnlinePlayers(data) {
+  // Explicit counters first.
+  const explicit=findNumeric(data,[
+    "onlinePlayers","playersOnline","onlineCount","playerCount",
+    "currentPlayers","currentPlayerCount","connectedPlayers",
+    "players_online","players_online_count"
   ]);
-  if (typeof raw === "number") return raw;
-  if (typeof raw === "string" && raw.trim() !== "" && Number.isFinite(Number(raw))) return Number(raw);
-  if (Array.isArray(raw)) return raw.length;
-  if (isObject(raw)) {
-    const nested = findScalar(raw, ["online","count","total","current"]);
-    if (nested !== undefined && Number.isFinite(Number(nested))) return Number(nested);
+  if(explicit !== undefined) return explicit;
+
+  // Common nested shape: { players: { online: 1, total: 10 } }
+  const playersNode=findValueByKey(data,["players","playerData","playerStats"]);
+  if(playersNode !== undefined) {
+    if(Array.isArray(playersNode)) return playersNode.length;
+    const nested=findNumeric(playersNode,["online","count","current","connected","totalOnline"]);
+    if(nested !== undefined) return nested;
   }
-  return null;
+
+  // If the payload contains a player array, its length is a useful fallback.
+  const arr=findArray(data,["onlinePlayers","players","items","entries","results","data"]);
+  if(arr) return arr.length;
+
+  return undefined;
+}
+
+function findValueByKey(value, keys, depth=0) {
+  if(depth>12 || value==null) return undefined;
+  if(Array.isArray(value)){
+    for(const item of value){
+      const found=findValueByKey(item,keys,depth+1);
+      if(found!==undefined) return found;
+    }
+    return undefined;
+  }
+  if(!isObject(value)) return undefined;
+
+  const normalized=Object.fromEntries(
+    Object.entries(value).map(([k,v])=>[
+      String(k).toLowerCase().replace(/[^a-z0-9]/g,""),v
+    ])
+  );
+  for(const key of keys){
+    const nk=String(key).toLowerCase().replace(/[^a-z0-9]/g,"");
+    if(normalized[nk]!==undefined) return normalized[nk];
+  }
+  for(const key of Object.keys(value)){
+    const found=findValueByKey(value[key],keys,depth+1);
+    if(found!==undefined) return found;
+  }
+  return undefined;
 }
 
 function normalizeServer(data) {
-  const players = countFromPayload(data);
-  const maxRaw = findScalar(data, ["maxPlayers","maxPlayerCount","slots","maxSlots"]);
-  const statusRaw = findScalar(data, ["status","serverStatus","state"]);
-  const onlineRaw = findScalar(data, ["online","isOnline","serverOnline"]);
+  const players=countOnlinePlayers(data);
+  const maxPlayers=findNumeric(data,["maxPlayers","maxPlayerCount","maxSlots","slots","capacity"]);
+  const statusRaw=findScalar(data,["status","serverStatus","state"]);
+  const onlineRaw=findScalar(data,["online","isOnline","serverOnline","isRunning"]);
 
-  const maxPlayers = Number(maxRaw);
-  const status = typeof statusRaw === "string" ? statusRaw.toLowerCase() : "";
-
+  const status=typeof statusRaw==="string"?statusRaw.toLowerCase():"";
   let online;
-  if (typeof onlineRaw === "boolean") online = onlineRaw;
-  else if (status) online = !["offline","down","stopped","unavailable","maintenance"].includes(status);
-  else online = true;
+  if(typeof onlineRaw==="boolean") online=onlineRaw;
+  else if(status) online=!["offline","down","stopped","unavailable","maintenance"].includes(status);
+  else online=true;
 
   return {
     online,
-    players,
-    maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : null,
+    players: players ?? null,
+    maxPlayers: maxPlayers ?? null,
     status: statusRaw ?? null
   };
 }
-
 function playerName(x) {
   return x?.name ?? x?.player ?? x?.playerName ?? x?.username ?? x?.steamName ?? x?.displayName ?? "Player";
 }
@@ -146,15 +188,16 @@ function rankingValue(x, kind) {
 }
 
 function normalizePlayers(data) {
-  const arr = findArray(data, ["players","onlinePlayers","online_players","items","data","results"]);
-  if (arr) return arr;
-  if (isObject(data)) {
-    const candidate = data.player ?? data.onlinePlayer ?? data.currentPlayer;
-    if (isObject(candidate)) return [candidate];
-  }
+  const arr=findArray(data,[
+    "players","onlinePlayers","online_players","items","entries","records","rows","data","results"
+  ]);
+  if(arr) return arr;
+
+  const node=findValueByKey(data,["player","onlinePlayer","currentPlayer"]);
+  if(isObject(node)) return [node];
+
   return [];
 }
-
 function normalizeLeaderboard(data, kind) {
   return findArray(data, ["leaderboard", "rankings", kind, "entries", "players"]) || [];
 }
@@ -194,6 +237,23 @@ export default {
         const leaderboard = normalizeLeaderboard(result.data, kind);
         return json({ ok: true, source: "Prisoner Bot", type: kind, endpoint: result.endpoint, count: leaderboard.length, leaderboard });
       } catch (e) { return json({ ok: false, error: e.message }, 503); }
+    }
+
+    if (url.pathname === "/api/debug-api") {
+      const target = url.searchParams.get("target") || "server";
+      const path = PATHS[target];
+      if (!path) return json({ ok:false, error:"Ungültiges target" }, 400);
+      try {
+        const result = await prisonerFetch(env, path);
+        return json({
+          ok: result.ok,
+          endpoint: result.endpoint,
+          status: result.status,
+          data: result.data
+        }, result.ok ? 200 : result.status);
+      } catch (e) {
+        return json({ ok:false, error:e.message }, 503);
+      }
     }
 
     if (url.pathname === "/api/prisoner-discovery") {

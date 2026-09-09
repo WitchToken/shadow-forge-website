@@ -11,7 +11,13 @@ function rankingValue(x,kind){
   if(kind==="kills") return x?.kills??x?.killCount??x?.killsCount??x?.value??x?.score??"—";
   return x?.playtime??x?.playTime??x?.totalPlaytime??x?.hours??x?.minutes??x?.value??"—";
 }
-function statusValue(x){return x?.status||x?.state||x?.online===true?"online":x?.online===false?"offline":"online"}
+function statusValue(x){
+  if(x?.status!=null) return x.status;
+  if(x?.state!=null) return x.state;
+  if(x?.online===true) return "online";
+  if(x?.online===false) return "offline";
+  return "online";
+}
 
 async function load(){
   try{
@@ -33,13 +39,17 @@ async function load(){
       document.querySelector("#playersPanel").innerHTML=list.slice(0,50)
         .map(x=>row(playerLabel(x),statusValue(x))).join("");
     }else{
-      const count = Number(document.querySelector("#playersCount").textContent.split("/")[0]);
+      const countText=document.querySelector("#playersCount").textContent.trim();
+      const count=parseInt(countText.split("/")[0],10);
       document.querySelector("#playersPanel").innerHTML =
-        Number.isFinite(count) && count > 0
-          ? `<div class="row"><span>Online-Spieler</span><b>${count}</b></div><div class="muted">Die API liefert aktuell die Anzahl, aber keine Spielerliste.</div>`
+        Number.isFinite(count) && count>0
+          ? row("Online-Spieler", String(count)) +
+            `<div class="muted">Prisoner Bot meldet Spieler online, liefert über /players aber aktuell keine Liste.</div>`
           : "Keine Spieler online / keine Player-Daten verfügbar.";
     }
-  }catch(e){document.querySelector("#playersPanel").innerHTML=`<span class="loading">${escapeHtml(e.message)}</span>`}
+  }catch(e){
+    document.querySelector("#playersPanel").innerHTML=`<span class="loading">${escapeHtml(e.message)}</span>`;
+  }
 
   for(const [id,kind] of [["kills","kills"],["playtime","playtime"]]){
     try{

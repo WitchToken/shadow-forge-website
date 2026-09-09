@@ -25,5 +25,5 @@ Public Worker routes:
 The v6 parser recursively handles common Prisoner Bot JSON wrappers (`data`, `results`, `items`, `players`, `leaderboard`, etc.) so the frontend does not depend on one exact nesting level.
 
 
-## V6.1 Live-data fix
-More tolerant parsing for nested Prisoner Bot responses and a fallback that displays the server-reported online player count even when the player endpoint does not expose a list.
+## V6.2 diagnostic
+Adds tolerant recursive parsing and `/api/debug-api?target=server|players|kills|playtime` to inspect the exact Prisoner Bot JSON response while troubleshooting. Remove/disable this debug route after diagnosis.
