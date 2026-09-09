@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "shadow-forge",
+  "main": "./worker.js",
+  "compatibility_date": "2026-09-09",
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "exclude": [
+      ".git/**",
+      ".wrangler/**",
+      "worker.js",
+      "wrangler.jsonc",
+      "README.md",
+      ".assetsignore"
+    ]
+  }
+}
