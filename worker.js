@@ -2,6 +2,7 @@ const BASE = "https://scum.theprisonerbot.com/api";
 
 const PATHS = {
   server: "/server",
+  rconServerInfo: "/admin/rcon-dashboard/server-info",
   players: "/players",
   kills: "/leaderboard/kills",
   playtime: "/leaderboard/playtime"
@@ -213,10 +214,50 @@ export default {
 
     if (url.pathname === "/api/server") {
       try {
-        const result = await prisonerFetch(env, PATHS.server);
-        if (!result.ok) return json({ ok: false, endpoint: result.endpoint, status: result.status, data: result.data }, result.status);
-        const server = normalizeServer(result.data);
-        return json({ ok: true, source: "Prisoner Bot", endpoint: result.endpoint, ...server, players_available: server.players !== null });
+        // The public /server endpoint reports server state, but the live RCON
+        // dashboard exposes the real-time player count and ServerInfo data.
+        const [publicResult, rconResult] = await Promise.all([
+          prisonerFetch(env, PATHS.server),
+          prisonerFetch(env, PATHS.rconServerInfo)
+        ]);
+
+        if (!publicResult.ok && !rconResult.ok) {
+          return json({
+            ok: false,
+            public_api: { endpoint: publicResult.endpoint, status: publicResult.status, data: publicResult.data },
+            rcon: { endpoint: rconResult.endpoint, status: rconResult.status, data: rconResult.data }
+          }, 502);
+        }
+
+        const publicServer = publicResult.ok ? normalizeServer(publicResult.data) : {};
+        const rcon = rconResult.ok && isObject(rconResult.data) ? rconResult.data : {};
+        const players = findNumeric(rcon, ["playersOnline", "onlinePlayers", "playerCount"]);
+
+        return json({
+          ok: true,
+          source: "Prisoner Bot",
+          endpoint: PATHS.rconServerInfo,
+          online: publicServer.online ?? true,
+          players: players ?? publicServer.players ?? null,
+          maxPlayers: publicServer.maxPlayers ?? null,
+          status: rcon.status ?? publicServer.status ?? null,
+          gameTime: rcon.gameTime ?? null,
+          timeSpeed: rcon.timeSpeed ?? null,
+          sunrise: rcon.sunrise ?? null,
+          sunset: rcon.sunset ?? null,
+          temperature: rcon.temperature ?? null,
+          temperatureMin: rcon.temperatureMin ?? null,
+          temperatureMax: rcon.temperatureMax ?? null,
+          waterTemperature: rcon.waterTemperature ?? null,
+          fogDensity: rcon.fogDensity ?? null,
+          rainIntensity: rcon.rainIntensity ?? null,
+          snowIntensity: rcon.snowIntensity ?? null,
+          windIntensity: rcon.windIntensity ?? null,
+          version: rcon.version ?? null,
+          players_available: players !== undefined || publicServer.players !== null,
+          rcon_ok: rconResult.ok,
+          public_api_ok: publicResult.ok
+        });
       } catch (e) { return json({ ok: false, error: e.message }, 503); }
     }
 
