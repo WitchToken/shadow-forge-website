@@ -212,6 +212,19 @@ export default {
       return json({ ok: true, service: "shadow-forge-api", prisoner_base_url: BASE, token_configured: Boolean(env.PRISONER_API_TOKEN), endpoints: PATHS });
     }
 
+    if (url.pathname === "/api/rcon-server-info") {
+      try {
+        const result = await prisonerFetch(env, PATHS.rconServerInfo);
+        return json({
+          ok: result.ok,
+          status: result.status,
+          endpoint: result.endpoint,
+          data_type: Array.isArray(result.data) ? "array" : typeof result.data,
+          data: result.data
+        }, result.ok ? 200 : result.status);
+      } catch (e) { return json({ ok: false, error: e.message }, 503); }
+    }
+
     if (url.pathname === "/api/server") {
       try {
         // The public /server endpoint reports server state, but the live RCON
@@ -230,7 +243,10 @@ export default {
         }
 
         const publicServer = publicResult.ok ? normalizeServer(publicResult.data) : {};
-        const rcon = rconResult.ok && isObject(rconResult.data) ? rconResult.data : {};
+        const rcon = rconResult.ok ? (
+          isObject(rconResult.data) ? rconResult.data :
+          (isObject(rconResult.data?.data) ? rconResult.data.data : {})
+        ) : {};
         const players = findNumeric(rcon, ["playersOnline", "onlinePlayers", "playerCount"]);
 
         return json({
