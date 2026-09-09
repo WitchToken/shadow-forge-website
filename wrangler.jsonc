@@ -1,9 +1,0 @@
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "shadow-forge",
-  "compatibility_date": "2026-09-08",
-  "observability": { "enabled": true },
-  "assets": {
-    "directory": "./public"
-  }
-}
