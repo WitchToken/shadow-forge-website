@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SHADOW FORGE – deutscher/englischer SCUM PvE/PvP Server mit Events, 3x Loot und Welcome Pack.">
+  <title>SHADOW FORGE | SCUM Server</title>
+  <style>
+    :root {
+      --bg: #08070d;
+      --panel: #11101a;
+      --panel-2: #181522;
+      --text: #f5f2fa;
+      --muted: #aaa3b8;
+      --accent: #9b5cff;
+      --accent-2: #d39cff;
+      --line: rgba(183, 115, 255, .22);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% -10%, rgba(126, 55, 190, .28), transparent 40%),
+        linear-gradient(180deg, #090811 0%, #05050a 100%);
+    }
+    a { color: inherit; text-decoration: none; }
+    .hero {
+      min-height: 78vh;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 80px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-inner { max-width: 900px; }
+    .eyebrow {
+      color: var(--accent-2);
+      letter-spacing: .3em;
+      text-transform: uppercase;
+      font-size: .8rem;
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(3rem, 10vw, 7rem);
+      letter-spacing: .08em;
+      text-shadow: 0 0 35px rgba(155,92,255,.35);
+    }
+    .tagline {
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.3rem);
+      margin: 20px auto 32px;
+      max-width: 700px;
+    }
+    .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      padding: 13px 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      font-weight: 700;
+      transition: .2s ease;
+    }
+    .btn.primary {
+      background: linear-gradient(135deg, #8b4de8, #b86cff);
+      color: #fff;
+      border-color: transparent;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(155,92,255,.18); }
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      padding: 14px 20px;
+      background: rgba(8,7,13,.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    nav a { color: var(--muted); font-size: .9rem; }
+    nav a:hover { color: #fff; }
+    main { max-width: 1180px; margin: auto; padding: 70px 20px; }
+    section { margin-bottom: 80px; }
+    .section-title {
+      font-size: 2rem;
+      margin: 0 0 12px;
+    }
+    .section-copy { color: var(--muted); max-width: 760px; line-height: 1.7; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 16px;
+      margin-top: 28px;
+    }
+    .card {
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 22px;
+    }
+    .card strong { display: block; margin-bottom: 8px; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #c9ffda;
+      font-weight: 700;
+    }
+    .dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #35d978;
+      box-shadow: 0 0 12px #35d978;
+    }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      padding: 30px 20px 50px;
+      border-top: 1px solid var(--line);
+    }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">SCUM • GER / ENG • PVE / PVP</div>
+      <h1>SHADOW FORGE</h1>
+      <p class="tagline">Survival. Community. Events. Willkommen in einer SCUM-Welt, in der mehr passiert als nur Looten und Überleben.</p>
+      <div class="buttons">
+        <a class="btn primary" href="#server">SERVER ANSEHEN</a>
+        <a class="btn" href="#discord">DISCORD</a>
+      </div>
+    </div>
+  </section>
+
+  <nav>
+    <a href="#server">Server</a>
+    <a href="#features">Features</a>
+    <a href="#events">Events</a>
+    <a href="#rules">Regeln</a>
+    <a href="#discord">Discord</a>
+  </nav>
+
+  <main>
+    <section id="server">
+      <h2 class="section-title">⚒️ Shadow Forge Server</h2>
+      <p class="section-copy">
+        [GER/ENG]・SHADOW FORGE・PvE/PvP・EVENTS・3xLOOT・WELCOMEPACK・DISCORD
+      </p>
+      <div class="grid">
+        <div class="card"><span class="status"><span class="dot"></span> SERVER ONLINE</span></div>
+        <div class="card"><strong>👥 Spieler</strong><span id="players">Wird verbunden …</span></div>
+        <div class="card"><strong>⚔️ Modus</strong>PvE / PvP</div>
+        <div class="card"><strong>🎁 Welcome Pack</strong>Für neue Überlebende</div>
+      </div>
+    </section>
+
+    <section id="features">
+      <h2 class="section-title">🔥 Features</h2>
+      <div class="grid">
+        <div class="card"><strong>3x Loot</strong>Mehr Action, weniger Leerlauf.</div>
+        <div class="card"><strong>🎉 Events</strong>Regelmäßige Community-Events.</div>
+        <div class="card"><strong>🗺️ Eigene Locations</strong>Witchtoken Bay & weitere Shadow-Forge-Bauten.</div>
+        <div class="card"><strong>🎁 Welcome Pack</strong>Schneller Einstieg für neue Spieler.</div>
+      </div>
+    </section>
+
+    <section id="events">
+      <h2 class="section-title">🎉 Events</h2>
+      <p class="section-copy">Hier werden später die aktuellen Shadow-Forge-Events automatisch aus unserem Event-System geladen.</p>
+    </section>
+
+    <section id="rules">
+      <h2 class="section-title">📜 Regeln</h2>
+      <p class="section-copy">Die vollständigen Serverregeln werden hier später übersichtlich nach PvE, PvP, Bauen, Fahrzeugen, Events und Community-Verhalten gegliedert.</p>
+    </section>
+
+    <section id="discord">
+      <h2 class="section-title">💜 Join the Forge</h2>
+      <p class="section-copy">News, Support, Events, Giveaways und Community direkt im Shadow-Forge-Discord.</p>
+      <div class="buttons" style="justify-content:flex-start;margin-top:20px;">
+        <a class="btn primary" href="#" aria-label="Discord Link später eintragen">DISCORD BEITRETEN</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>SHADOW FORGE • SCUM COMMUNITY • © 2026</footer>
+</body>
+</html>
