@@ -1,8 +1,8 @@
-# Shadow Forge V6.5 – RCON Live Debug
+# Shadow Forge V6.6 – RCON Auth Test
 
-This build keeps V6.4 and adds a temporary `/api/rcon-server-info` route so the raw RCON ServerInfo response can be inspected safely. It contains no API token.
+This version tests the Prisoner Bot RCON dashboard endpoint with Bearer authentication because the browser request uses `Authorization: Bearer ...`, while the public API uses `PRISONER-BOT-TOKEN`.
 
-Test:
-`https://shadow-forge.sveamareenbusiness.workers.dev/api/rcon-server-info`
+Test route after deployment:
+`/api/rcon-server-info`
 
-After confirming the payload, remove this debug route before final production deployment.
+No token is returned by the debug route.
