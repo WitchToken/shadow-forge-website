@@ -258,11 +258,34 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
       ? gServer?.online !== false
       : pServer?.online === true;
 
-  const currentPlayers = numeric(gmServer?.players) ?? numeric(gServer?.players) ?? numeric(pServer?.players);
+  // Reconcile the live count across healthy sources instead of trusting one stale summary field.
+  const countCandidates = [
+    { source: "GAMEMONITORING Players", value: gmPlayers.length },
+    { source: "GAMEMONITORING", value: numeric(gmServer?.players) },
+    { source: "GS4u", value: numeric(gServer?.players) },
+    { source: "Prisoner Bot", value: numeric(pServer?.players) }
+  ].filter(item => Number.isFinite(item.value));
+
+  const currentPlayers = countCandidates.length
+    ? Math.max(...countCandidates.map(item => item.value))
+    : null;
+
+  const countSource = countCandidates
+    .filter(item => item.value === currentPlayers)
+    .map(item => item.source);
+
   const version = gmServer?.version || pServer?.version || null;
   const ping = numeric(gm?.responseMs);
   const playerList = gm?.playersOk ? gmPlayers : [];
-  const source = gm?.ok ? "GAMEMONITORING" : gs4u?.ok ? "GS4u Live Monitor" : pServer ? "Prisoner Bot" : "Nicht verfügbar";
+  const source = currentPlayers != null
+    ? `Multi-Source (${countSource.join(" + ")})`
+    : gm?.ok
+      ? "GAMEMONITORING"
+      : gs4u?.ok
+        ? "GS4u Live Monitor"
+        : pServer
+          ? "Prisoner Bot"
+          : "Nicht verfügbar";
 
   return {
     online,
@@ -274,8 +297,9 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
     ping,
     pingLabel: "Monitor Ping",
     playerList,
-    playerListSource: gm?.playersOk ? "GAMEMONITORING" : "Keine Live-Namensquelle",
+    playerListSource: gm?.playersOk && gmPlayers.length ? "GAMEMONITORING" : "Keine Live-Namensquelle",
     liveSource: source,
+    countSources: countCandidates,
     leaderboards: {
       kills: kills?.ok ? normalizeLeaderboard(kills.data, "kills") : [],
       playtime: playtime?.ok ? normalizeLeaderboard(playtime.data, "playtime") : []
