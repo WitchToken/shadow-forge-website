@@ -1,104 +1,86 @@
-# ⚒️ Shadow Forge Website — GitHub Ready
+# Shadow Forge — GitHub Ready V5.2
 
-Production-ready Cloudflare Worker + static website for **Shadow Forge SCUM**.
+Cloudflare Worker + static site for Shadow Forge.
 
-## Live data architecture
+## Live integrations
 
-- **Prisoner Bot Public API → RCON** is the primary source for live players via `POST /api/public/command/send` with `#ListPlayers`.
-- **Prisoner Bot Kill Webhook → Cloudflare KV** stores the latest killfeed.
-- **Prisoner Bot Public API** provides leaderboards.
-- **GAMEMONITORING** remains a fallback/monitoring source.
-- **GS4u** remains a fallback for server availability.
-- Public capacity is fixed at **60 slots**.
-- Public map label is **Island Map**.
+- Prisoner Bot Public API via `PRISONER-BOT-TOKEN`
+- Prisoner Bot RCON live players via `POST /api/public/command/send` with `#ListPlayers`
+- Prisoner Bot Kill webhook -> Cloudflare KV
+- GAMEMONITORING fallback
+- GS4u fallback
+- Fixed public capacity: 60 slots
+- Map label: Island Map
 
-## Files
+## Required Cloudflare configuration
 
-```text
-index.html
-worker.js
-wrangler.toml
-.gitignore
-.assetsignore
-README.md
-```
-
-## 1. Cloudflare KV
-
-This package declares the `KILLFEED_KV` binding without hard-coding a namespace ID. With current Wrangler/Workers Builds, the binding can be automatically provisioned on deploy. If you prefer to create it yourself, create a KV namespace such as `SHADOW_FORGE_KILLFEED` and bind it in Cloudflare under **Worker → Settings → Bindings → Add → KV Namespace**, using variable name `KILLFEED_KV`. Cloudflare documents both binding approaches.
-
-## 2. Cloudflare Secret
-
-Create this Worker secret:
+### 1. Worker Secret
+Create a Worker Secret named:
 
 `PRISONER_API_TOKEN`
 
-Use the token generated in the Prisoner Bot panel. **Never commit it to GitHub.**
+Set its value to the current Prisoner Bot API token. Never put the token in GitHub or frontend code.
 
-Optional second secret:
+### 2. KV Namespace
+Create a KV namespace, e.g.:
+
+`SHADOW_FORGE_KILLFEED`
+
+Copy its Namespace ID into `wrangler.toml`:
+
+```toml
+[[kv_namespaces]]
+binding = "KILLFEED_KV"
+id = "YOUR_NAMESPACE_ID"
+```
+
+Commit the changed `wrangler.toml` to `main`.
+
+### 3. Killfeed webhook secret
+Create another Worker Secret:
 
 `KILLFEED_WEBHOOK_SECRET`
 
-If set, use the secret as the final path segment of the webhook URL. Example:
+Use a long random value.
 
-`https://YOUR-WORKER.workers.dev/api/webhooks/prisoner/kill/YOUR_SECRET`
+### 4. Prisoner Bot webhook
+Create a Prisoner Bot webhook for the `Kill` event.
 
-The path secret is accepted directly; Prisoner Bot does not need to send a custom header. If you do not set this secret, the webhook endpoint remains available at `/api/webhooks/prisoner/kill`.
+Target URL:
 
-## 3. Prisoner Bot webhook
+`https://YOUR_WORKER_DOMAIN/api/webhooks/prisoner/kill/YOUR_KILLFEED_WEBHOOK_SECRET`
 
-Create a **Kill** webhook in Prisoner Bot and point it to the Worker webhook URL above.
-
-The Worker stores up to 40 recent events for up to 7 days.
-
-## 4. Cloudflare deployment
-
-The existing Cloudflare Workers GitHub deployment can use:
-
-- Root directory: `/`
-- Build command: empty / none
-- Deploy command: `npx wrangler deploy`
-- Production branch: `main`
-
-No VPS, UDP bridge or VPC is required for the live-player path.
+Do not paste the secret into GitHub.
 
 ## API endpoints
 
-### `GET /api/live`
-Complete live server payload.
+- `/api/health`
+- `/api/live`
+- `/api/rcon-players`
+- `/api/players`
+- `/api/killfeed`
+- `/api/leaderboard?type=kills`
+- `/api/leaderboard?type=playtime`
+- `/api/query`
 
-### `GET /api/rcon-players`
-Direct live player list from Prisoner Bot RCON.
+## Expected health
 
-### `GET /api/players`
-Same live RCON player list, for the website player section.
+Before secrets/KV are configured, health will correctly show:
 
-### `GET /api/killfeed`
-Latest stored killfeed.
+- `prisonerBot: false`
+- `prisonerRconLivePlayers: false`
+- `killfeedWebhook: false`
 
-### `POST /api/webhooks/prisoner/kill[/SECRET]`
-Receives Prisoner Bot Kill webhook events.
+After configuration they should become true.
 
-### `GET /api/leaderboard?type=kills`
-Kill leaderboard.
+## Testing
 
-### `GET /api/leaderboard?type=playtime`
-Playtime leaderboard.
-
-### `GET /api/health`
-Integration health/status.
+1. Open `/api/health`.
+2. Open `/api/rcon-players` while at least one player is online.
+3. Open `/api/killfeed`.
+4. Trigger a test kill and reload `/api/killfeed`.
+5. Open the main site.
 
 ## Security
 
-- No Prisoner Bot token is shipped to the browser.
-- No token belongs in GitHub.
-- Use Cloudflare Worker Secrets for credentials.
-- If a token was ever pasted into chat, rotate it.
-
-## Shadow Forge
-
-Connect: `176.57.174.127:28202`
-
-Capacity: **60**
-
-Discord: `https://discord.gg/XDsAjmSFhq`
+Never commit Prisoner Bot tokens or webhook secrets. If a token was exposed, rotate it in Prisoner Bot before using the new value in Cloudflare.

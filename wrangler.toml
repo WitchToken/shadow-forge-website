@@ -9,5 +9,8 @@ not_found_handling = "single-page-application"
 [observability]
 enabled = true
 
+# After creating the KV namespace in Cloudflare, replace the placeholder below
+# with the Namespace ID and commit this file to GitHub.
 [[kv_namespaces]]
 binding = "KILLFEED_KV"
+id = "REPLACE_WITH_CLOUDFLARE_KV_NAMESPACE_ID"
