@@ -17,7 +17,7 @@
 </style>
 </head>
 <body>
-<nav class="nav"><div class="container nav-inner"><a class="brand" href="#top"><span class="brand-mark"></span><span>SHADOW FORGE</span></a><div class="nav-links"><a href="#live">Live</a><a href="#survivors">Survivors</a><a href="#leaderboards">Rankings</a><a href="#events">Events</a><a href="#connect">Join</a></div></div></nav>
+<nav class="nav"><div class="container nav-inner"><a class="brand" href="#top"><span class="brand-mark"></span><span>SHADOW FORGE</span></a><div class="nav-links"><a href="#live">Live</a><a href="#survivors">Survivors</a><a href="#killfeed">Killfeed</a><a href="#leaderboards">Rankings</a><a href="#events">Events</a><a href="#connect">Join</a></div></div></nav>
 
 <main id="top">
 <section class="hero"><div class="container hero-grid"><div><div class="eyebrow">✦ Play · Survive · Forge</div><h1>SHADOW <span><strong>FORGE</strong></span></h1><p class="hero-copy">Ein düsterer SCUM-Server für Survivors, Builder, PvP-Fans und Eventjäger. PvE/PvP, Events, 3x Loot, Welcome Pack und eine Community, die ihren eigenen Weg schmiedet.</p><div class="chips"><span class="chip">PvE / PvP</span><span class="chip">Events</span><span class="chip">3x Loot</span><span class="chip">Welcome Pack</span><span class="chip">GER / ENG</span></div><div class="hero-actions"><a class="btn primary" id="discordHero" href="#connect" target="_blank" rel="noopener">Discord öffnen</a><a class="btn ghost" href="#live">Serverstatus ansehen</a></div></div>
@@ -25,8 +25,9 @@
 
 <section class="section"><div class="container"><div class="stats-grid"><div class="stat"><small>Online Survivors</small><strong id="statPlayers">—</strong></div><div class="stat"><small>Server Slots</small><strong id="statSlots">—</strong></div><div class="stat"><small>Monitor Ping</small><strong id="statPing">—</strong></div><div class="stat"><small>Version</small><strong id="statVersion">—</strong></div></div></div></section>
 
-<section class="section" id="survivors"><div class="container"><div class="section-title"><div><div class="section-kicker">Live Community</div><h2>Survivors</h2><p>Live-Spieler werden primär über die Prisoner-Bot Public API übernommen. GAMEMONITORING und GS4u bleiben als Fallback aktiv. Die Liste wird automatisch aktualisiert.</p></div><div class="source-line"><span id="playerSourceDot" class="source-dot"></span><span id="playerSource">Quelle: —</span></div></div><div class="card"><div class="source-line" style="margin-bottom:10px"><span class="source-dot"></span><span id="playerCountLabel">Online jetzt: —</span></div><div id="playerList" class="player-list"><div class="empty">Lade Survivors …</div></div></div></div></section>
+<section class="section" id="survivors"><div class="container"><div class="section-title"><div><div class="section-kicker">Live Community</div><h2>Survivors</h2><p>Live-Spieler werden direkt über Prisoner Bot RCON aus SCUM abgerufen.</p></div><div class="source-line"><span id="playerSourceDot" class="source-dot"></span><span id="playerSource">Quelle: —</span></div></div><div class="card"><div id="playerList" class="player-list"><div class="empty">Lade Survivors …</div></div></div></div></section>
 
+<section class="section" id="killfeed"><div class="container"><div class="section-title"><div><div class="section-kicker">The Forge remembers</div><h2>Live Killfeed</h2><p>Frische Kills aus dem Prisoner-Bot-Webhook — inklusive NPC-Kills, wenn sie gemeldet werden.</p></div><div class="live-tag">Auto Refresh</div></div><div class="card"><div id="killfeedList" class="leaderboard"><div class="empty">Lade Killfeed …</div></div></div></div></section>
 <section class="section" id="leaderboards"><div class="container"><div class="section-title"><div><div class="section-kicker">The Forge remembers</div><h2>Leaderboards</h2><p>Kills und Playtime aus der Prisoner-Bot Public API.</p></div></div><div class="two-col"><div class="card"><h3>☠️ Top Kills</h3><div id="kills" class="leaderboard"><div class="empty">Lade Ranking …</div></div></div><div class="card"><h3>⏳ Playtime</h3><div id="playtime" class="leaderboard"><div class="empty">Lade Ranking …</div></div></div></div></div></section>
 
 <section class="section"><div class="container"><div class="section-title"><div><div class="section-kicker">What awaits you</div><h2>Shadow Forge Features</h2><p>Der Server ist mehr als nur ein Join-Button.</p></div></div><div class="feature-grid"><div class="feature"><div class="feature-icon">⚒️</div><h4>3x Loot</h4><p>Mehr Loot, mehr Möglichkeiten, weniger endloses Suchen.</p></div><div class="feature"><div class="feature-icon">☾</div><h4>PvE / PvP</h4><p>Gemeinsam bauen und überleben – mit Bereichen und Events für Action.</p></div><div class="feature"><div class="feature-icon">♜</div><h4>Events</h4><p>Regelmäßige Server-Events bringen Bewegung in die Welt.</p></div><div class="feature"><div class="feature-icon">✦</div><h4>Welcome Pack</h4><p>Neue Survivors bekommen einen direkten Start in die Shadow-Forge-Welt.</p></div></div></div></section>
@@ -36,7 +37,7 @@
 <section class="section" id="connect"><div class="container"><div class="connect"><div><div class="section-kicker">Ready to survive?</div><h2>Join Shadow Forge</h2><div class="address" id="connectAddress">176.57.174.127:28202</div><div class="muted" style="font-size:11px;margin-top:8px">Server Connect · [GER/ENG] · PvE/PvP · Community auf Discord</div></div><div class="hero-actions" style="margin:0"><button class="btn primary" id="copyBtn" type="button">Adresse kopieren</button><a class="btn ghost" id="discordJoin" href="#connect" target="_blank" rel="noopener">Discord</a></div></div></div></section>
 </main>
 
-<footer class="footer"><div class="container"><strong>SHADOW FORGE</strong> · SCUM SERVER<br>[GER/ENG] · PvE/PvP · EVENTS · 3x LOOT · WELCOMEPACK · DISCORD<br><span>Live data refresh: 20s · Internal infrastructure details are kept server-side.</span></div></footer>
+<footer class="footer"><div class="container"><strong>SHADOW FORGE</strong> · SCUM SERVER<br>[GER/ENG] · PvE/PvP · EVENTS · 3x LOOT · WELCOMEPACK · DISCORD<br><span>Live data refresh: 20s · RCON-Live-Daten werden serverseitig über Prisoner Bot verarbeitet.</span></div></footer>
 <div id="toast" class="toast"></div>
 
 <script>
@@ -58,8 +59,6 @@ function renderPlayers(data){
   const list = Array.isArray(data?.server?.playerList) ? data.server.playerList : [];
   $('playerSource').textContent = `Quelle: ${fmt(data?.server?.playerListSource)} · Live Count: ${fmt(data?.server?.liveSource)}`;
   $('playerSourceDot').classList.toggle('off', !list.length && !(data?.server?.players > 0));
-  const count = Number(data?.server?.players);
-  $('playerCountLabel').textContent = `Online jetzt: ${Number.isFinite(count) ? count : list.length}`;
   if(!list.length){
     $('playerList').innerHTML = `<div class="empty">Aktuell sind keine Live-Spielernamen verfügbar. Der Survivor-Zähler kann trotzdem aktuell sein.</div>`;
     return;
@@ -67,13 +66,14 @@ function renderPlayers(data){
   $('playerList').innerHTML = list.slice(0,40).map((p,i)=>{
     const name = typeof p === 'string' ? p : (p.name || p.playerName || 'Unknown Survivor');
     const ping = typeof p === 'object' && p.ping != null ? `${p.ping} ms` : '';
-    return `<div class="player"><div><div class="player-name">${esc(name)}</div><div class="player-meta">Survivor #${i+1}</div></div><div class="player-ping">${esc(ping)}</div></div>`;
+    const steamId = typeof p === 'object' && p.steamId ? `SteamID ${p.steamId}` : '';
+    return `<div class="player"><div><div class="player-name">${esc(name)}</div><div class="player-meta">Survivor #${i+1}${steamId ? ` · ${esc(steamId)}` : ''}</div></div><div class="player-ping">${esc(ping)}</div></div>`;
   }).join('');
 }
 function renderRanking(id, rows, suffix=''){
   const box = $(id);
   if(!Array.isArray(rows) || !rows.length){ box.innerHTML = '<div class="empty">Noch keine Daten verfügbar.</div>'; return; }
-  box.innerHTML = rows.slice(0,10).map((r,i)=>{ const rank=Number(r.rank||i+1); const badge=rank===1?'♛':rank===2?'◆':rank===3?'◇':`#${rank}`; return `<div class="rank-row"><div class="rank">${badge}</div><div class="rank-name">${esc(r.name || 'Unknown Survivor')}</div><div class="rank-value">${esc(fmt(r.value))}${suffix}</div></div>`; }).join('');
+  box.innerHTML = rows.slice(0,10).map((r,i)=>`<div class="rank-row"><div class="rank">#${esc(r.rank || i+1)}</div><div class="rank-name">${esc(r.name || 'Unknown Survivor')}</div><div class="rank-value">${esc(fmt(r.value))}${suffix}</div></div>`).join('');
 }
 async function getJson(path){
   const res = await fetch(path,{cache:'no-store',headers:{Accept:'application/json'}});
@@ -94,6 +94,21 @@ async function loadConfig(){
   }catch(error){
     console.warn('Discord config unavailable', error);
   }
+}
+
+function renderKillfeed(rows){
+  const box=$('killfeedList');
+  if(!Array.isArray(rows)||!rows.length){box.innerHTML='<div class="empty">Noch keine Kills eingegangen.</div>';return;}
+  box.innerHTML=rows.slice(0,20).map(k=>{
+    const time=k.timestamp?new Date(k.timestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—';
+    const middle=k.weapon?` <span class="muted">· ${esc(k.weapon)}</span>`:'';
+    const sector=k.sector?` <span class="muted">· ${esc(k.sector)}</span>`:'';
+    const icon=k.npc?'☠️':'⚔️';
+    return `<div class="rank-row"><div class="rank">${icon}</div><div class="rank-name"><b>${esc(k.killerName||'Unknown')}</b> <span class="muted">→</span> <b>${esc(k.victimName||'Unknown')}</b>${middle}${sector}</div><div class="rank-value">${time}</div></div>`;
+  }).join('');
+}
+async function loadKillfeed(){
+  try{const data=await getJson('/api/killfeed');renderKillfeed(data.kills||[]);}catch(e){console.warn('Killfeed unavailable',e);renderKillfeed([]);}
 }
 async function loadLeaderboards(){
   const [kills, playtime] = await Promise.allSettled([getJson('/api/leaderboard?type=kills'),getJson('/api/leaderboard?type=playtime')]);
@@ -138,7 +153,7 @@ $('copyBtn').addEventListener('click', async()=>{
   try{ await navigator.clipboard.writeText('176.57.174.127:28202'); showToast('Serveradresse kopiert ✦'); }
   catch{ showToast('Serveradresse: 176.57.174.127:28202'); }
 });
-async function refresh(){ await Promise.allSettled([loadLive(),loadLeaderboards(),loadConfig()]); }
+async function refresh(){ await Promise.allSettled([loadLive(),loadLeaderboards(),loadKillfeed(),loadConfig()]); }
 refresh();
 setInterval(refresh, REFRESH_MS);
 </script>
