@@ -157,7 +157,7 @@ async function fetchJsonUrl(url) {
 
 async function gameMonitoringFetch() {
   const serverUrl = `${GAMEMONITORING_BASE}/servers/${GAMEMONITORING_SERVER_ID}`;
-  const playersUrl = `${serverUrl}/players`;
+  const playersUrl = `${serverUrl}/players?limit=${PUBLIC_SERVER.maxPlayers}`;
   const started = Date.now();
   const [server, players] = await Promise.all([
     fetchJsonUrl(serverUrl),
