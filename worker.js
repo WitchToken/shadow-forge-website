@@ -17,7 +17,7 @@ const PATHS = {
   playtime: "/leaderboard/playtime"
 };
 
-const LIVE_CACHE_MS = 10_000;
+const LIVE_CACHE_MS = 5_000;
 const LEADERBOARD_CACHE_MS = 30_000;
 
 function corsHeaders(extra = {}) {
@@ -245,47 +245,67 @@ async function cachedJson(key, loader, ttl) {
   return stored;
 }
 
+function extractOnlinePlayers(data) {
+  const root = data?.response ?? data;
+  const arr = findArray(root, ["onlinePlayers", "online_players", "players", "items", "entries", "records", "rows", "data", "results"]);
+  if (!arr) return [];
+  const online = arr.filter((p) => {
+    if (!isObject(p)) return true;
+    const flag = p.online ?? p.isOnline ?? p.connected ?? p.isConnected;
+    if (typeof flag === "boolean") return flag;
+    const status = String(p.status ?? p.state ?? "").toLowerCase();
+    if (status) return ["online", "connected", "playing", "active"].includes(status);
+    return true;
+  });
+  return online.map((p, index) => {
+    if (!isObject(p)) return { id: index + 1, name: String(p), ping: null };
+    return {
+      id: p.id ?? p.steamId ?? p.steam_id ?? index + 1,
+      name: p.name ?? p.playerName ?? p.player_name ?? p.displayName ?? p.username ?? p.nickname ?? p.steamName ?? "Unknown Survivor",
+      ping: numeric(p.ping)
+    };
+  });
+}
+
 function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
   const pServer = prisonerServer?.ok ? normalizeServer(prisonerServer.data) : null;
-  const dbPlayers = prisonerPlayers?.ok ? normalizePlayers(prisonerPlayers.data) : [];
+  const pPlayers = prisonerPlayers?.ok ? extractOnlinePlayers(prisonerPlayers.data) : [];
   const gmServer = gm?.ok ? gm.server : null;
   const gmPlayers = gm?.players ?? [];
   const gServer = gs4u?.ok ? gs4u.server : null;
 
-  const online = gm?.ok
-    ? gmServer?.online !== false
-    : gs4u?.ok
-      ? gServer?.online !== false
-      : pServer?.online === true;
-
-  // Reconcile the live count across healthy sources instead of trusting one stale summary field.
+  // Prisoner Bot is the preferred live source because it is connected to Shadow Forge's
+  // actual SCUM server through its monitoring/RCON stack. GAMEMONITORING and GS4u remain
+  // independent fallbacks and sanity checks.
   const countCandidates = [
-    { source: "GAMEMONITORING Players", value: gmPlayers.length },
-    { source: "GAMEMONITORING", value: numeric(gmServer?.players) },
-    { source: "GS4u", value: numeric(gServer?.players) },
-    { source: "Prisoner Bot", value: numeric(pServer?.players) }
+    { source: "Prisoner Bot", value: numeric(pServer?.players), priority: 1 },
+    { source: "Prisoner Bot Players", value: pPlayers.length || null, priority: 1 },
+    { source: "GAMEMONITORING Players", value: gm?.playersOk ? gmPlayers.length : null, priority: 2 },
+    { source: "GAMEMONITORING", value: numeric(gmServer?.players), priority: 3 },
+    { source: "GS4u", value: numeric(gServer?.players), priority: 4 }
   ].filter(item => Number.isFinite(item.value));
 
-  const currentPlayers = countCandidates.length
-    ? Math.max(...countCandidates.map(item => item.value))
-    : null;
+  const prisonerCandidates = countCandidates.filter(item => item.priority === 1);
+  const currentPlayers = prisonerCandidates.length
+    ? Math.max(...prisonerCandidates.map(item => item.value))
+    : countCandidates.length
+      ? Math.max(...countCandidates.map(item => item.value))
+      : null;
 
   const countSource = countCandidates
-    .filter(item => item.value === currentPlayers)
+    .filter(item => item.value === currentPlayers && item.priority === (prisonerCandidates.length ? 1 : Math.min(...countCandidates.map(x => x.priority))))
     .map(item => item.source);
 
   const version = gmServer?.version || pServer?.version || null;
   const ping = numeric(gm?.responseMs);
-  const playerList = gm?.playersOk ? gmPlayers : [];
-  const source = currentPlayers != null
-    ? `Multi-Source (${countSource.join(" + ")})`
-    : gm?.ok
-      ? "GAMEMONITORING"
-      : gs4u?.ok
-        ? "GS4u Live Monitor"
-        : pServer
-          ? "Prisoner Bot"
-          : "Nicht verfügbar";
+  const playerList = pPlayers.length ? pPlayers : (gm?.playersOk ? gmPlayers : []);
+  const playerListSource = pPlayers.length ? "Prisoner Bot Public API" : (gm?.playersOk && gmPlayers.length ? "GAMEMONITORING" : "Keine Live-Namensquelle");
+
+  const online = pServer?.online === true
+    ? true
+    : gmServer?.online === true
+      ? true
+      : gServer?.online === true;
 
   return {
     online,
@@ -297,9 +317,21 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
     ping,
     pingLabel: "Monitor Ping",
     playerList,
-    playerListSource: gm?.playersOk && gmPlayers.length ? "GAMEMONITORING" : "Keine Live-Namensquelle",
-    liveSource: source,
-    countSources: countCandidates,
+    playerListSource,
+    liveSource: currentPlayers != null
+      ? `Prisoner Bot${countSource.length ? ` (${countSource.join(" + ")})` : ""}`
+      : "Nicht verfügbar",
+    countSources: countCandidates.map(({ source, value }) => ({ source, value })),
+    diagnostics: {
+      prisonerBotServerPlayers: numeric(pServer?.players),
+      prisonerBotPlayersCount: pPlayers.length,
+      prisonerBotServerOnline: pServer?.online ?? null,
+      prisonerBotConfigured: Boolean(prisonerServer?.ok || prisonerPlayers?.ok || kills?.ok || playtime?.ok),
+      prisonerBotServerStatus: prisonerServer?.status ?? null,
+      prisonerBotPlayersStatus: prisonerPlayers?.status ?? null,
+      prisonerBotServerError: prisonerServer?.error ?? null,
+      prisonerBotPlayersError: prisonerPlayers?.error ?? null
+    },
     leaderboards: {
       kills: kills?.ok ? normalizeLeaderboard(kills.data, "kills") : [],
       playtime: playtime?.ok ? normalizeLeaderboard(playtime.data, "playtime") : []
@@ -322,7 +354,7 @@ export default {
     if (url.pathname === "/api/health") {
       return json({
         ok: true,
-        service: "shadow-forge-live-api-v3-gamemonitoring",
+        service: "shadow-forge-live-api-v3.3-prisoner-primary",
         timestamp: new Date().toISOString(),
         integrations: {
           gameMonitoring: true,
@@ -390,12 +422,47 @@ export default {
     }
 
     if (url.pathname === "/api/players") {
-      const result = await gameMonitoringFetch();
+      const [prisonerPlayers, gm] = await Promise.all([
+        prisonerFetch(env, PATHS.players),
+        gameMonitoringFetch()
+      ]);
+      const players = prisonerPlayers.ok
+        ? extractOnlinePlayers(prisonerPlayers.data)
+        : (gm.playersOk ? gm.players : []);
       return json({
-        ok: result.playersOk,
-        source: result.playersOk ? "GAMEMONITORING" : "Nicht verfügbar",
-        count: result.players.length,
-        players: result.players
+        ok: Boolean(prisonerPlayers.ok || gm.playersOk),
+        source: prisonerPlayers.ok ? "Prisoner Bot Public API" : (gm.playersOk ? "GAMEMONITORING" : "Nicht verfügbar"),
+        count: players.length,
+        players
+      });
+    }
+
+    if (url.pathname === "/api/prisoner-status") {
+      const [server, players] = await Promise.all([
+        prisonerFetch(env, PATHS.server),
+        prisonerFetch(env, PATHS.players)
+      ]);
+      const normalizedServer = server.ok ? normalizeServer(server.data) : null;
+      const normalizedPlayers = players.ok ? extractOnlinePlayers(players.data) : [];
+      return json({
+        ok: Boolean(server.ok || players.ok),
+        source: "Prisoner Bot Public API",
+        configured: Boolean(env.PRISONER_API_TOKEN),
+        server: {
+          ok: server.ok,
+          status: server.status,
+          players: normalizedServer?.players ?? null,
+          online: normalizedServer?.online ?? null,
+          version: normalizedServer?.version ?? null,
+          error: server.error ?? null
+        },
+        players: {
+          ok: players.ok,
+          status: players.status,
+          count: normalizedPlayers.length,
+          names: normalizedPlayers.map(p => p.name),
+          error: players.error ?? null
+        }
       });
     }
 
