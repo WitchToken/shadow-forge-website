@@ -1,11 +1,15 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "shadow-forge",
-  "main": "./leaderboard-worker.js",
+  "main": "./playtime-tracker.js",
   "compatibility_date": "2026-09-11",
 
   "observability": {
     "enabled": true
+  },
+
+  "triggers": {
+    "crons": ["*/5 * * * *"]
   },
 
   "assets": {
