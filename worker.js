@@ -116,7 +116,6 @@ function normalizePlayers(data) {
     return {
       id: p.id ?? index,
       name: p.name ?? p.playerName ?? p.player_name ?? p.displayName ?? p.username ?? "Unknown Survivor",
-      steamId: p.steamId ?? p.steam_id ?? p.steamID ?? null,
       playtime: p.playtime ?? p.playTime ?? p.totalPlaytime ?? null,
       ping: p.ping ?? null
     };
@@ -362,6 +361,13 @@ export default {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
 
+    if (url.pathname === "/api/config") {
+      return json({
+        ok: true,
+        discordUrl: env.DISCORD_URL || "https://discord.gg/XDsAjmSFhq"
+      });
+    }
+
     if (url.pathname === "/api/health") {
       return json({
         ok: true,
@@ -458,8 +464,13 @@ export default {
       try {
         const result = await prisonerFetch(env, PATHS.players, url.search.slice(1));
         if (!result.ok) return json({ ok: false, ...result }, result.status);
-        const players = normalizePlayers(result.data);
-        return json({ ok: true, source: "Prisoner Bot Public API", endpoint: result.endpoint, count: players.length, players });
+        const players = normalizePlayers(result.data).map((player, index) => ({
+          id: index + 1,
+          name: player.name || "Unknown Survivor",
+          ping: player.ping ?? null,
+          playtime: player.playtime ?? null
+        }));
+        return json({ ok: true, source: "Prisoner Bot Public API", count: players.length, players });
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 503);
       }

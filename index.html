@@ -20,7 +20,7 @@
 <nav class="nav"><div class="container nav-inner"><a class="brand" href="#top"><span class="brand-mark"></span><span>SHADOW FORGE</span></a><div class="nav-links"><a href="#live">Live</a><a href="#survivors">Survivors</a><a href="#leaderboards">Rankings</a><a href="#events">Events</a><a href="#connect">Join</a></div></div></nav>
 
 <main id="top">
-<section class="hero"><div class="container hero-grid"><div><div class="eyebrow">✦ Play · Survive · Forge</div><h1>SHADOW <span><strong>FORGE</strong></span></h1><p class="hero-copy">Ein düsterer SCUM-Server für Survivors, Builder, PvP-Fans und Eventjäger. PvE/PvP, Events, 3x Loot, Welcome Pack und eine Community, die ihren eigenen Weg schmiedet.</p><div class="chips"><span class="chip">PvE / PvP</span><span class="chip">Events</span><span class="chip">3x Loot</span><span class="chip">Welcome Pack</span><span class="chip">GER / ENG</span></div><div class="hero-actions"><a class="btn primary" href="#connect">Discord öffnen</a><a class="btn ghost" href="#live">Serverstatus ansehen</a></div></div>
+<section class="hero"><div class="container hero-grid"><div><div class="eyebrow">✦ Play · Survive · Forge</div><h1>SHADOW <span><strong>FORGE</strong></span></h1><p class="hero-copy">Ein düsterer SCUM-Server für Survivors, Builder, PvP-Fans und Eventjäger. PvE/PvP, Events, 3x Loot, Welcome Pack und eine Community, die ihren eigenen Weg schmiedet.</p><div class="chips"><span class="chip">PvE / PvP</span><span class="chip">Events</span><span class="chip">3x Loot</span><span class="chip">Welcome Pack</span><span class="chip">GER / ENG</span></div><div class="hero-actions"><a class="btn primary" id="discordHero" href="#connect" target="_blank" rel="noopener">Discord öffnen</a><a class="btn ghost" href="#live">Serverstatus ansehen</a></div></div>
 <div class="hero-panel" id="live"><div class="panel-head"><div class="status"><span id="statusDot" class="dot"></span><span id="statusText">STATUS WIRD GELADEN</span></div><div class="live-tag">Live Monitor</div></div><div class="server-name" id="serverName">SHADOW FORGE</div><div class="server-sub" id="serverSubtitle">[GER/ENG] · PvE/PvP · EVENTS · 3x LOOT</div><div class="big-players"><div class="num" id="heroPlayers">—</div><div class="max">/ <span id="heroSlots">—</span> Survivors</div></div><div class="progress"><span id="playerBar"></span></div><div class="micro-grid"><div class="micro"><small>Query Ping</small><b id="heroPing">—</b></div><div class="micro"><small>Version</small><b id="heroVersion">—</b></div><div class="micro"><small>Map</small><b id="heroMap">—</b></div><div class="micro"><small>Live Source</small><b id="heroSource">—</b></div></div><div class="source-line" style="margin-top:17px"><span id="querySourceDot" class="source-dot"></span><span id="sourceText">SCUM Query · GS4u · Prisoner Bot</span><span>·</span><span>Update <b id="lastUpdate">—</b></span></div></div></div></section>
 
 <section class="section"><div class="container"><div class="stats-grid"><div class="stat"><small>Online Survivors</small><strong id="statPlayers">—</strong></div><div class="stat"><small>Server Slots</small><strong id="statSlots">—</strong></div><div class="stat"><small>Query Ping</small><strong id="statPing">—</strong></div><div class="stat"><small>API Response</small><strong id="statApi">—</strong></div></div></div></section>
@@ -33,7 +33,7 @@
 
 <section class="section" id="events"><div class="container"><div class="section-title"><div><div class="section-kicker">Enter the darkness</div><h2>Events</h2><p>Geplante und spontane Aktionen rund um Shadow Forge.</p></div></div><div class="events"><article class="event"><div class="tag">Warzone</div><h3>Purge Night</h3><p>Eine besondere PvP-Nacht mit eigener Event-Atmosphäre. Basen und Fahrzeuge bleiben geschützt.</p></article><article class="event"><div class="tag">Community</div><h3>Shadow Forge Events</h3><p>Community-Aktionen, Challenges und gemeinsame Server-Momente – angekündigt über Discord.</p></article><article class="event"><div class="tag">World</div><h3>Explore & Build</h3><p>Entdecke unsere Orte, baue deine Geschichte und hinterlasse deine Spuren in der Forge.</p></article></div></div></section>
 
-<section class="section" id="connect"><div class="container"><div class="connect"><div><div class="section-kicker">Ready to survive?</div><h2>Join Shadow Forge</h2><div class="address" id="connectAddress">176.57.174.127:28202</div><div class="muted" style="font-size:11px;margin-top:8px">Server Connect · [GER/ENG] · PvE/PvP · Discord-Link hier einsetzen</div></div><div class="hero-actions" style="margin:0"><button class="btn primary" id="copyBtn" type="button">Adresse kopieren</button><a class="btn ghost" href="#connect">Discord</a></div></div></div></section>
+<section class="section" id="connect"><div class="container"><div class="connect"><div><div class="section-kicker">Ready to survive?</div><h2>Join Shadow Forge</h2><div class="address" id="connectAddress">176.57.174.127:28202</div><div class="muted" style="font-size:11px;margin-top:8px">Server Connect · [GER/ENG] · PvE/PvP · Community auf Discord</div></div><div class="hero-actions" style="margin:0"><button class="btn primary" id="copyBtn" type="button">Adresse kopieren</button><a class="btn ghost" id="discordJoin" href="#connect" target="_blank" rel="noopener">Discord</a></div></div></div></section>
 </main>
 
 <footer class="footer"><div class="container"><strong>SHADOW FORGE</strong> · SCUM SERVER<br>[GER/ENG] · PvE/PvP · EVENTS · 3x LOOT · WELCOMEPACK · DISCORD<br><span>Live data refresh: 20s · Internal infrastructure details are kept server-side.</span></div></footer>
@@ -78,6 +78,21 @@ async function getJson(path){
   if(!res.ok) throw new Error(`${path} ${res.status}`);
   return res.json();
 }
+async function loadConfig(){
+  try{
+    const config = await getJson('/api/config');
+    const url = config?.discordUrl;
+    if(url){
+      $('discordHero').href = url;
+      $('discordJoin').href = url;
+    }else{
+      $('discordHero').href = '#connect';
+      $('discordJoin').href = '#connect';
+    }
+  }catch(error){
+    console.warn('Discord config unavailable', error);
+  }
+}
 async function loadLeaderboards(){
   const [kills, playtime] = await Promise.allSettled([getJson('/api/leaderboard?type=kills'),getJson('/api/leaderboard?type=playtime')]);
   renderRanking('kills', kills.status==='fulfilled' ? kills.value.leaderboard : []);
@@ -121,7 +136,7 @@ $('copyBtn').addEventListener('click', async()=>{
   try{ await navigator.clipboard.writeText('176.57.174.127:28202'); showToast('Serveradresse kopiert ✦'); }
   catch{ showToast('Serveradresse: 176.57.174.127:28202'); }
 });
-async function refresh(){ await Promise.allSettled([loadLive(),loadLeaderboards()]); }
+async function refresh(){ await Promise.allSettled([loadLive(),loadLeaderboards(),loadConfig()]); }
 refresh();
 setInterval(refresh, REFRESH_MS);
 </script>

@@ -47,3 +47,9 @@ The bridge is intentionally locked to the configured SCUM target and is not an o
 
 ## Privacy/security notes
 The public `/api/health`, `/api/live`, `/api/query`, and `/api/gs4u` responses intentionally omit internal ports, raw query configuration, bridge keys, tokens, Steam IDs and raw upstream payloads.
+
+
+## Public website data
+The public site exposes only safe display data: online status, current players, configured 60 slots, query ping, version, map, player names/pings, Top Kills and Playtime. Query host/port, bridge key and Prisoner Bot token stay server-side.
+
+Set `DISCORD_URL` in the Cloudflare Worker environment if you want to override the configured Discord invite. The current public invite is `https://discord.gg/XDsAjmSFhq`.
