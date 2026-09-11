@@ -619,6 +619,168 @@ export default {
       }
     }
 
+
+    // ============================================================
+    // PUBLIC API DISCOVERY V4
+    // V3 found the Admin Panel's real JS bundle and the API base:
+    // https://scum.theprisonerbot.com/api
+    //
+    // V4 extracts API-like string literals and nearby code fragments
+    // from the bundle. This is intentionally SAFE:
+    // - no Authorization headers
+    // - no tokens/cookies/localStorage values
+    // - no full JS bundle
+    // - only endpoint-like strings and short context snippets
+    // ============================================================
+    if (url.pathname === "/api/public-discovery-v4") {
+      try {
+        const panelUrl = "https://scumpanel.theprisonerbot.com/";
+        const panelResponse = await fetch(panelUrl, {
+          method: "GET",
+          headers: { "Accept": "text/html" }
+        });
+
+        const html = await panelResponse.text();
+
+        const scriptMatches = [
+          ...html.matchAll(/(?:src|href)="([^"]+\.js(?:\?[^"]*)?)"/gi)
+        ];
+
+        const assetUrls = [];
+
+        for (const match of scriptMatches) {
+          let asset = match[1];
+
+          if (!asset.startsWith("http")) {
+            asset = new URL(asset, panelUrl).toString();
+          }
+
+          if (!assetUrls.includes(asset)) {
+            assetUrls.push(asset);
+          }
+        }
+
+        const selectedAssets = assetUrls.slice(0, 10);
+        const bundles = [];
+
+        // API endpoint-looking strings.
+        const endpointRegexes = [
+          /["'`]([^"'`]{0,180}\/api\/[^"'`]{0,180})["'`]/gi,
+          /["'`]([^"'`]{0,180}(?:rcon-dashboard|rcon|player-list|playerlist|players|monitoring|server-info|server-status|online-players|leaderboard)[^"'`]{0,180})["'`]/gi,
+          /["'`]([^"'`]{0,180}(?:\$fetch|useFetch|fetch|axios)[^"'`]{0,180})["'`]/gi
+        ];
+
+        // Generic string literals containing API-relevant words.
+        const relevantWordRegex =
+          /["'`]([^"'`]{1,220}(?:\/api|rcon-dashboard|server-info|server-status|online-players|player-list|playerlist|players|monitoring|leaderboard)[^"'`]{0,220})["'`]/gi;
+
+        for (const assetUrl of selectedAssets) {
+          try {
+            const jsResponse = await fetch(assetUrl, {
+              method: "GET",
+              headers: {
+                "Accept": "application/javascript,text/javascript,*/*"
+              }
+            });
+
+            const jsText = await jsResponse.text();
+            const endpoints = new Set();
+            const relevantStrings = new Set();
+
+            for (const regex of endpointRegexes) {
+              let match;
+
+              while ((match = regex.exec(jsText)) !== null) {
+                const value = match[1]
+                  .replace(/\\(["'`\\])/g, "$1")
+                  .trim();
+
+                if (
+                  value.length >= 2 &&
+                  value.length <= 300 &&
+                  !/token|authorization|cookie|password|secret|localstorage|sessionstorage/i.test(value)
+                ) {
+                  endpoints.add(value);
+                }
+              }
+            }
+
+            let match;
+            while ((match = relevantWordRegex.exec(jsText)) !== null) {
+              const value = match[1]
+                .replace(/\\(["'`\\])/g, "$1")
+                .trim();
+
+              if (
+                value.length >= 2 &&
+                value.length <= 300 &&
+                !/token|authorization|cookie|password|secret|localstorage|sessionstorage/i.test(value)
+              ) {
+                relevantStrings.add(value);
+              }
+            }
+
+            // Look for API calls where the path is assembled from variables.
+            // Return only a short sanitized context around interesting terms.
+            const contextHits = [];
+            const contextRegex =
+              /(?:\$fetch|useFetch|fetch|axios|apiUrl|rcon-dashboard|server-info|server-status|player-list|online-players|monitoring)/gi;
+
+            while ((match = contextRegex.exec(jsText)) !== null && contextHits.length < 150) {
+              const start = Math.max(0, match.index - 180);
+              const end = Math.min(jsText.length, match.index + 320);
+
+              let snippet = jsText.slice(start, end)
+                .replace(/\s+/g, " ")
+                .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
+                .replace(/(?:token|authorization|cookie|password|secret)\s*[:=]\s*["'`][^"'`]{0,300}["'`]/gi, "$1=[REDACTED]");
+
+              if (!/token|authorization|cookie|password|secret/i.test(snippet)) {
+                contextHits.push(snippet);
+              }
+            }
+
+            bundles.push({
+              asset: assetUrl,
+              status: jsResponse.status,
+              content_type: jsResponse.headers.get("content-type") || "",
+              bytes: jsText.length,
+              endpoint_candidates: [...endpoints].slice(0, 500),
+              relevant_strings: [...relevantStrings].slice(0, 500),
+              context_hits: contextHits
+            });
+          } catch (e) {
+            bundles.push({
+              asset: assetUrl,
+              ok: false,
+              error: e?.message || String(e)
+            });
+          }
+        }
+
+        return json({
+          ok: true,
+          source: "Prisoner Bot Admin Panel bundle API discovery V4",
+          panel_status: panelResponse.status,
+          panel_content_type:
+            panelResponse.headers.get("content-type") || "",
+          html_bytes: html.length,
+          api_base: BASE,
+          js_assets_found: assetUrls.length,
+          js_assets_tested: selectedAssets.length,
+          bundles
+        });
+      } catch (e) {
+        return json(
+          {
+            ok: false,
+            error: e?.message || String(e)
+          },
+          503
+        );
+      }
+    }
+
     if (url.pathname === "/api/rcon-server-info") {
       try {
         const result = await prisonerFetch(
