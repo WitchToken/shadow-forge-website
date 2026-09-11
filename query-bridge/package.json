@@ -1,8 +1,0 @@
-{
-  "name": "shadow-forge-scum-query-bridge",
-  "version": "2.8.0",
-  "private": true,
-  "type": "commonjs",
-  "engines": { "node": ">=18" },
-  "scripts": { "start": "node server.js" }
-}
