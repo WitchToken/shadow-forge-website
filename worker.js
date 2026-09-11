@@ -1,4 +1,12 @@
-const BASE = "https://scum.theprisonerbot.com/api";
+const PRISONER_BASE = "https://scum.theprisonerbot.com/api";
+
+const SCUM_SERVER = {
+  name: "Shadow Forge",
+  host: "176.57.174.127",
+  gamePort: 28202,
+  queryPort: 28215,
+  connectAddress: "176.57.174.127:28202"
+};
 
 const PATHS = {
   server: "/server",
@@ -7,23 +15,23 @@ const PATHS = {
   playtime: "/leaderboard/playtime"
 };
 
-const CACHE_TTL_MS = 20_000;
+const CACHE_TTL_MS = 15_000;
 
 function corsHeaders(extra = {}) {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Shadow-Forge-Key",
     "Cache-Control": "no-store",
     "Content-Type": "application/json; charset=UTF-8",
     ...extra
   };
 }
 
-function json(data, status = 200) {
+function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: corsHeaders()
+    headers: corsHeaders(extraHeaders)
   });
 }
 
@@ -41,17 +49,8 @@ function findArray(value, preferred = [], depth = 0) {
   }
 
   const common = [
-    "players",
-    "onlinePlayers",
-    "online_players",
-    "leaderboard",
-    "rankings",
-    "items",
-    "results",
-    "rows",
-    "data",
-    "entries",
-    "records"
+    "players", "onlinePlayers", "online_players", "leaderboard",
+    "rankings", "items", "results", "rows", "data", "entries", "records"
   ];
 
   for (const key of common) {
@@ -80,7 +79,6 @@ function findValueByKey(value, keys, depth = 0) {
   if (!isObject(value)) return undefined;
 
   const wanted = new Set(keys.map(k => String(k).toLowerCase()));
-
   for (const [key, val] of Object.entries(value)) {
     if (wanted.has(key.toLowerCase())) return val;
   }
@@ -100,36 +98,14 @@ function findNumeric(value, keys) {
 
 function normalizeServer(data) {
   const players = findNumeric(data, [
-    "players",
-    "playersOnline",
-    "onlinePlayers",
-    "playerCount",
-    "currentPlayers"
+    "players", "playersOnline", "onlinePlayers", "playerCount", "currentPlayers"
   ]);
-
   const maxPlayers = findNumeric(data, [
-    "maxPlayers",
-    "max_players",
-    "slots",
-    "maxSlots",
-    "capacity"
+    "maxPlayers", "max_players", "slots", "maxSlots", "capacity"
   ]);
-
-  const online = findValueByKey(data, [
-    "online",
-    "isOnline",
-    "serverOnline"
-  ]);
-
-  const status = findValueByKey(data, [
-    "status",
-    "state"
-  ]);
-
-  const version = findValueByKey(data, [
-    "version",
-    "serverVersion"
-  ]);
+  const online = findValueByKey(data, ["online", "isOnline", "serverOnline"]);
+  const status = findValueByKey(data, ["status", "state"]);
+  const version = findValueByKey(data, ["version", "serverVersion"]);
 
   return {
     online: typeof online === "boolean" ? online : true,
@@ -143,110 +119,55 @@ function normalizeServer(data) {
 
 function normalizePlayers(data) {
   const arr = findArray(data, [
-    "players",
-    "onlinePlayers",
-    "online_players",
-    "items",
-    "entries",
-    "records",
-    "rows",
-    "data",
-    "results"
+    "players", "onlinePlayers", "online_players", "items", "entries", "records", "rows", "data", "results"
   ]);
-
   if (!arr) return [];
 
   return arr.map((p, index) => {
-    if (!isObject(p)) {
-      return {
-        id: index,
-        name: String(p),
-        steamId: null
-      };
-    }
-
+    if (!isObject(p)) return { id: index, name: String(p), steamId: null };
     return {
       id: p.id ?? index,
-      name:
-        p.name ??
-        p.playerName ??
-        p.player_name ??
-        p.displayName ??
-        p.username ??
-        "Unknown Survivor",
-      steamId:
-        p.steamId ??
-        p.steam_id ??
-        p.steamID ??
-        null,
-      playtime:
-        p.playtime ??
-        p.playTime ??
-        p.totalPlaytime ??
-        null
+      name: p.name ?? p.playerName ?? p.player_name ?? p.displayName ?? p.username ?? "Unknown Survivor",
+      steamId: p.steamId ?? p.steam_id ?? p.steamID ?? null,
+      playtime: p.playtime ?? p.playTime ?? p.totalPlaytime ?? null
     };
   });
 }
 
 function normalizeLeaderboard(data, kind) {
-  const arr =
-    findArray(data, [
-      "leaderboard",
-      "rankings",
-      kind,
-      "entries",
-      "players",
-      "items",
-      "data"
-    ]) || [];
+  const arr = findArray(data, ["leaderboard", "rankings", kind, "entries", "players", "items", "data"]) || [];
 
   return arr.map((item, index) => {
-    if (!isObject(item)) {
-      return {
-        rank: index + 1,
-        name: String(item),
-        value: null
-      };
-    }
+    if (!isObject(item)) return { rank: index + 1, name: String(item), value: null };
 
-    const value =
-      kind === "kills"
-        ? item.kills ??
-          item.killCount ??
-          item.killsCount ??
-          item.value ??
-          item.score ??
-          null
-        : item.playtime ??
-          item.playTime ??
-          item.totalPlaytime ??
-          item.hours ??
-          item.minutes ??
-          item.value ??
-          null;
+    const value = kind === "kills"
+      ? item.kills ?? item.killCount ?? item.killsCount ?? item.value ?? item.score ?? null
+      : item.playtime ?? item.playTime ?? item.totalPlaytime ?? item.hours ?? item.minutes ?? item.value ?? null;
 
     return {
       rank: item.rank ?? item.position ?? index + 1,
-      name:
-        item.name ??
-        item.playerName ??
-        item.player_name ??
-        item.displayName ??
-        item.username ??
-        "Unknown Survivor",
+      name: item.name ?? item.playerName ?? item.player_name ?? item.displayName ?? item.username ?? "Unknown Survivor",
       value
     };
   });
 }
 
-async function prisonerFetch(env, path, query = "") {
-  if (!env.PRISONER_API_TOKEN) {
-    throw new Error("PRISONER_API_TOKEN fehlt");
+async function readJsonResponse(response) {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text.slice(0, 2000) };
   }
+}
 
-  const target = new URL(path, BASE);
+async function prisonerFetch(env, path, query = "") {
+  if (!env.PRISONER_API_TOKEN) throw new Error("PRISONER_API_TOKEN fehlt");
+
+  const target = new URL(path, PRISONER_BASE);
   if (query) target.search = query;
 
+  const started = Date.now();
   const response = await fetch(target, {
     method: "GET",
     headers: {
@@ -255,67 +176,121 @@ async function prisonerFetch(env, path, query = "") {
     }
   });
 
-  const text = await response.text();
-
-  let body;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    body = {
-      raw: text.slice(0, 1000)
-    };
-  }
-
   return {
     ok: response.ok,
     status: response.status,
     endpoint: path,
-    data: body
+    responseMs: Date.now() - started,
+    data: await readJsonResponse(response)
   };
 }
 
-/*
- * Small edge cache.
- * This protects the Prisoner Bot API from being hit on every browser refresh
- * while keeping the public website feeling live.
- */
-async function cachedFetch(env, path, query = "", ttl = CACHE_TTL_MS) {
+async function queryBridgeFetch(env) {
+  if (!env.SCUM_QUERY_BRIDGE_URL) {
+    return {
+      configured: false,
+      ok: false,
+      error: "SCUM_QUERY_BRIDGE_URL fehlt",
+      server: null,
+      players: []
+    };
+  }
+
+  const started = Date.now();
+  const url = new URL(env.SCUM_QUERY_BRIDGE_URL);
+  url.searchParams.set("host", SCUM_SERVER.host);
+  url.searchParams.set("port", String(SCUM_SERVER.queryPort));
+
+  const headers = { "Accept": "application/json" };
+  if (env.SCUM_QUERY_BRIDGE_KEY) headers["X-Shadow-Forge-Key"] = env.SCUM_QUERY_BRIDGE_KEY;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      cf: { cacheTtl: 5, cacheEverything: false }
+    });
+    const data = await readJsonResponse(response);
+
+    return {
+      configured: true,
+      ok: response.ok && data?.ok !== false,
+      status: response.status,
+      responseMs: Date.now() - started,
+      server: data?.server ?? null,
+      players: Array.isArray(data?.players) ? data.players : [],
+      error: data?.error ?? null
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      ok: false,
+      status: 502,
+      responseMs: Date.now() - started,
+      server: null,
+      players: [],
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+async function cachedJson(env, requestKey, loader, ttl = CACHE_TTL_MS) {
   const cache = caches.default;
-  const cacheUrl = new URL(`https://shadow-forge-cache.invalid${path}`);
-  cacheUrl.search = query || "";
-
-  const cacheKey = new Request(cacheUrl.toString(), {
-    method: "GET"
-  });
-
+  const cacheKey = new Request(`https://shadow-forge-cache.invalid/${encodeURIComponent(requestKey)}`);
   const cached = await cache.match(cacheKey);
+
   if (cached) {
-    const age = Number(cached.headers.get("X-Shadow-Forge-Age") || "0");
-    if (Date.now() - age < ttl) {
-      const clone = new Response(cached.body, cached);
-      clone.headers.set("X-Shadow-Forge-Cache", "HIT");
-      return clone;
+    const storedAt = Number(cached.headers.get("X-Shadow-Forge-Stored-At") || 0);
+    if (storedAt && Date.now() - storedAt < ttl) {
+      const hit = new Response(cached.body, cached);
+      hit.headers.set("X-Shadow-Forge-Cache", "HIT");
+      return hit;
     }
   }
 
-  const result = await prisonerFetch(env, path, query);
-
-  const response = json(result, result.ok ? 200 : result.status);
-
+  const value = await loader();
+  const response = json(value);
   const headers = new Headers(response.headers);
-  headers.set("X-Shadow-Forge-Age", String(Date.now()));
+  headers.set("X-Shadow-Forge-Stored-At", String(Date.now()));
   headers.set("X-Shadow-Forge-Cache", "MISS");
-
-  const cacheResponse = new Response(response.body, {
-    status: response.status,
-    headers
-  });
-
-  if (result.ok) {
-    await cache.put(cacheKey, cacheResponse.clone());
-  }
-
+  const cacheResponse = new Response(response.body, { status: 200, headers });
+  await cache.put(cacheKey, cacheResponse.clone());
   return cacheResponse;
+}
+
+function mergeLive(queryResult, prisonerServerResult, prisonerPlayersResult) {
+  const queryServer = queryResult?.server ?? null;
+  const prisonerServer = prisonerServerResult?.ok ? normalizeServer(prisonerServerResult.data) : null;
+  const databasePlayers = prisonerPlayersResult?.ok ? normalizePlayers(prisonerPlayersResult.data) : [];
+
+  const queryPlayers = Array.isArray(queryResult?.players) ? queryResult.players : [];
+
+  const online = queryResult?.configured
+    ? Boolean(queryResult.ok && queryServer?.online !== false)
+    : Boolean(prisonerServer?.online);
+
+  const players = queryResult?.ok
+    ? (queryPlayers.length ? queryPlayers : databasePlayers)
+    : databasePlayers;
+
+  const currentPlayers = queryServer?.players ?? prisonerServer?.players ?? null;
+  const maxPlayers = queryServer?.maxPlayers ?? prisonerServer?.maxPlayers ?? null;
+  const version = queryServer?.version || prisonerServer?.version || null;
+
+  return {
+    online,
+    status: online ? "online" : "offline",
+    players: currentPlayers,
+    maxPlayers,
+    version,
+    map: queryServer?.map ?? null,
+    hostname: queryServer?.name ?? SCUM_SERVER.name,
+    ping: queryServer?.ping ?? null,
+    queryPort: queryServer?.queryPort ?? SCUM_SERVER.queryPort,
+    gamePort: SCUM_SERVER.gamePort,
+    playerList: players,
+    playerListSource: queryResult?.ok ? "SCUM Query" : "Prisoner Bot Public API"
+  };
 }
 
 export default {
@@ -323,21 +298,20 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: corsHeaders()
-      });
+      return new Response(null, { status: 204, headers: corsHeaders() });
     }
 
     if (url.pathname === "/api/health") {
       return json({
         ok: true,
-        service: "shadow-forge-api",
-        prisoner_base_url: BASE,
-        token_configured: Boolean(env.PRISONER_API_TOKEN),
-        live_update_interval_seconds: 30,
-        public_endpoints: [
+        service: "shadow-forge-api-v2",
+        timestamp: new Date().toISOString(),
+        server: SCUM_SERVER,
+        prisonerApiConfigured: Boolean(env.PRISONER_API_TOKEN),
+        queryBridgeConfigured: Boolean(env.SCUM_QUERY_BRIDGE_URL),
+        endpoints: [
           "/api/live",
+          "/api/query",
           "/api/server",
           "/api/players",
           "/api/leaderboard?type=kills",
@@ -346,210 +320,98 @@ export default {
       });
     }
 
-    /*
-     * Main website endpoint.
-     * The frontend only has to call /api/live.
-     */
-    if (url.pathname === "/api/live") {
-      const started = Date.now();
+    if (url.pathname === "/api/query") {
+      return cachedJson(env, "query", async () => {
+        const result = await queryBridgeFetch(env);
+        return {
+          ok: result.ok,
+          source: "Shadow Forge SCUM Query Bridge",
+          serverConfig: SCUM_SERVER,
+          ...result
+        };
+      }, 5_000);
+    }
 
-      try {
-        const [serverResponse, playersResponse] = await Promise.all([
+    if (url.pathname === "/api/live") {
+      return cachedJson(env, "live", async () => {
+        const started = Date.now();
+        const [queryResult, prisonerServerResult, prisonerPlayersResult] = await Promise.all([
+          queryBridgeFetch(env),
           prisonerFetch(env, PATHS.server),
           prisonerFetch(env, PATHS.players)
         ]);
 
-        const server = serverResponse.ok
-          ? normalizeServer(serverResponse.data)
-          : {
-              online: false,
-              players: null,
-              maxPlayers: null,
-              status: null,
-              version: null,
-              raw: null
-            };
+        const live = mergeLive(queryResult, prisonerServerResult, prisonerPlayersResult);
 
-        const players = playersResponse.ok
-          ? normalizePlayers(playersResponse.data)
-          : [];
-
-        /*
-         * Important:
-         * /players is the confirmed Public API player database endpoint.
-         * It is NOT assumed to be the live RCON player list.
-         *
-         * If /server itself contains a player count, use it.
-         * Otherwise leave player count null rather than inventing it.
-         */
-        const livePlayerCount =
-          server.players !== null
-            ? server.players
-            : null;
-
-        return json({
-          ok: serverResponse.ok || playersResponse.ok,
-          source: "Shadow Forge Live API",
+        return {
+          ok: Boolean(queryResult.ok || prisonerServerResult.ok || prisonerPlayersResult.ok),
+          source: "Shadow Forge Live API V2",
           timestamp: new Date().toISOString(),
-          response_ms: Date.now() - started,
-
-          server: {
-            online: server.online,
-            status: server.status,
-            players: livePlayerCount,
-            maxPlayers: server.maxPlayers,
-            version: server.version
+          responseMs: Date.now() - started,
+          server: live,
+          sources: {
+            scumQuery: queryResult,
+            prisonerServer: {
+              ok: prisonerServerResult.ok,
+              status: prisonerServerResult.status,
+              responseMs: prisonerServerResult.responseMs
+            },
+            prisonerPlayers: {
+              ok: prisonerPlayersResult.ok,
+              status: prisonerPlayersResult.status,
+              responseMs: prisonerPlayersResult.responseMs
+            }
           },
-
-          players: {
-            count: players.length,
-            list: players
-          },
-
-          api: {
-            server_ok: serverResponse.ok,
-            players_ok: playersResponse.ok
-          }
-        });
-      } catch (error) {
-        return json(
-          {
-            ok: false,
-            source: "Shadow Forge Live API",
-            timestamp: new Date().toISOString(),
-            error: error instanceof Error ? error.message : String(error)
-          },
-          503
-        );
-      }
+          connection: SCUM_SERVER
+        };
+      });
     }
 
     if (url.pathname === "/api/server") {
       try {
-        const result = await prisonerFetch(
-          env,
-          PATHS.server,
-          url.search.slice(1)
-        );
-
-        if (!result.ok) {
-          return json(
-            {
-              ok: false,
-              endpoint: result.endpoint,
-              status: result.status,
-              data: result.data
-            },
-            result.status
-          );
-        }
-
-        return json({
-          ok: true,
-          source: "Prisoner Bot Public API",
-          endpoint: result.endpoint,
-          server: normalizeServer(result.data)
-        });
+        const result = await prisonerFetch(env, PATHS.server, url.search.slice(1));
+        if (!result.ok) return json({ ok: false, ...result }, result.status);
+        return json({ ok: true, source: "Prisoner Bot Public API", endpoint: result.endpoint, server: normalizeServer(result.data) });
       } catch (error) {
-        return json(
-          {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error)
-          },
-          503
-        );
+        return json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 503);
       }
     }
 
     if (url.pathname === "/api/players") {
       try {
-        const result = await prisonerFetch(
-          env,
-          PATHS.players,
-          url.search.slice(1)
-        );
-
-        if (!result.ok) {
-          return json(
-            {
-              ok: false,
-              endpoint: result.endpoint,
-              status: result.status,
-              data: result.data
-            },
-            result.status
-          );
-        }
-
+        const result = await prisonerFetch(env, PATHS.players, url.search.slice(1));
+        if (!result.ok) return json({ ok: false, ...result }, result.status);
         const players = normalizePlayers(result.data);
-
-        return json({
-          ok: true,
-          source: "Prisoner Bot Public API",
-          endpoint: result.endpoint,
-          count: players.length,
-          players
-        });
+        return json({ ok: true, source: "Prisoner Bot Public API", endpoint: result.endpoint, count: players.length, players });
       } catch (error) {
-        return json(
-          {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error)
-          },
-          503
-        );
+        return json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 503);
       }
+    }
+
+    if (!url.pathname.startsWith("/api/") && env.ASSETS) {
+      return env.ASSETS.fetch(request);
     }
 
     if (url.pathname === "/api/leaderboard") {
-      const kind =
-        url.searchParams.get("type") === "playtime"
-          ? "playtime"
-          : "kills";
-
+      const kind = url.searchParams.get("type") === "playtime" ? "playtime" : "kills";
       try {
-        const result = await prisonerFetch(
-          env,
-          PATHS[kind],
-          url.search.slice(1)
-        );
-
-        if (!result.ok) {
-          return json(
-            {
-              ok: false,
-              endpoint: result.endpoint,
-              status: result.status,
-              data: result.data
-            },
-            result.status
-          );
-        }
-
-        const leaderboard = normalizeLeaderboard(
-          result.data,
-          kind
-        );
-
+        const result = await prisonerFetch(env, PATHS[kind], url.search.slice(1));
+        if (!result.ok) return json({ ok: false, ...result }, result.status);
         return json({
           ok: true,
           source: "Prisoner Bot Public API",
-          type: kind,
           endpoint: result.endpoint,
-          count: leaderboard.length,
-          leaderboard
+          type: kind,
+          leaderboard: normalizeLeaderboard(result.data, kind)
         });
       } catch (error) {
-        return json(
-          {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error)
-          },
-          503
-        );
+        return json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 503);
       }
     }
 
-    return env.ASSETS.fetch(request);
+    return new Response("Shadow Forge API V2", {
+      status: 404,
+      headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=UTF-8" }
+    });
   }
 };

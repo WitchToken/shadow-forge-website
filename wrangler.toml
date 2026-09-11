@@ -1,0 +1,10 @@
+name = "shadow-forge"
+main = "worker.js"
+compatibility_date = "2026-09-11"
+
+[assets]
+directory = "."
+not_found_handling = "single-page-application"
+
+[observability]
+enabled = true
