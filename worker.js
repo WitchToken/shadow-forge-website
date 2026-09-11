@@ -498,6 +498,127 @@ export default {
       });
     }
 
+
+    // ============================================================
+    // PUBLIC API DISCOVERY V3
+    // The guessed Public API paths above all redirect to the Nuxt
+    // Admin Panel. V3 follows that redirect, reads the panel HTML,
+    // finds its Nuxt JS bundles, and safely extracts endpoint-like
+    // strings from those bundles.
+    //
+    // It NEVER returns tokens, Authorization headers, cookies,
+    // localStorage values, or full HTML/JS.
+    // ============================================================
+    if (url.pathname === "/api/public-discovery-v3") {
+      try {
+        const panelUrl = "https://scumpanel.theprisonerbot.com/";
+        const panelResponse = await fetch(panelUrl, {
+          method: "GET",
+          headers: { "Accept": "text/html" }
+        });
+
+        const html = await panelResponse.text();
+
+        // Extract Nuxt JS asset URLs from the panel HTML.
+        const assetMatches = [
+          ...html.matchAll(/(?:src|href)="([^"]+\.js(?:\?[^"]*)?)"/gi)
+        ];
+
+        const assetUrls = [];
+        for (const match of assetMatches) {
+          let asset = match[1];
+          if (asset.startsWith("/")) {
+            asset = new URL(asset, panelUrl).toString();
+          } else if (!asset.startsWith("http")) {
+            asset = new URL(asset, panelUrl).toString();
+          }
+
+          if (!assetUrls.includes(asset)) {
+            assetUrls.push(asset);
+          }
+        }
+
+        // Limit work to the first 20 JS bundles.
+        const selectedAssets = assetUrls.slice(0, 20);
+        const bundles = [];
+
+        const interestingPatterns = [
+          /\/api\/[A-Za-z0-9_./?=&${}:-]+/g,
+          /admin\/rcon-dashboard\/[A-Za-z0-9_./?=&${}:-]+/g,
+          /rcon-dashboard[A-Za-z0-9_./?=&${}:-]*/g,
+          /(?:server|player|players|online|status|monitoring)[A-Za-z0-9_./?=&${}:-]{0,100}/gi
+        ];
+
+        for (const assetUrl of selectedAssets) {
+          try {
+            const jsResponse = await fetch(assetUrl, {
+              method: "GET",
+              headers: { "Accept": "application/javascript,text/javascript,*/*" }
+            });
+
+            const jsText = await jsResponse.text();
+            const found = new Set();
+
+            for (const pattern of interestingPatterns) {
+              const matches = jsText.match(pattern) || [];
+              for (const item of matches) {
+                const clean = item
+                  .replace(/[\\"'`;,)\]}]+$/g, "")
+                  .trim();
+
+                if (
+                  clean.length >= 4 &&
+                  clean.length <= 220 &&
+                  !/password|token|authorization|cookie|localstorage|sessionstorage/i.test(clean)
+                ) {
+                  found.add(clean);
+                }
+              }
+            }
+
+            bundles.push({
+              asset: assetUrl,
+              status: jsResponse.status,
+              content_type: jsResponse.headers.get("content-type") || "",
+              bytes: jsText.length,
+              matches: [...found].slice(0, 250)
+            });
+          } catch (e) {
+            bundles.push({
+              asset: assetUrl,
+              ok: false,
+              error: e?.message || String(e)
+            });
+          }
+        }
+
+        // Also look for the API base URL without exposing page contents.
+        const apiBaseCandidates = [
+          ...html.matchAll(/https?:\/\/[^"'`\s<>]+\/api(?:\/[^"'`\s<>]*)?/gi)
+        ].map(m => m[0].replace(/[\\'"`),;]+$/g, ""));
+
+        return json({
+          ok: true,
+          source: "Prisoner Bot Admin Panel bundle discovery V3",
+          panel_status: panelResponse.status,
+          panel_content_type: panelResponse.headers.get("content-type") || "",
+          html_bytes: html.length,
+          js_assets_found: assetUrls.length,
+          js_assets_tested: selectedAssets.length,
+          api_base_candidates: [...new Set(apiBaseCandidates)].slice(0, 50),
+          bundles
+        });
+      } catch (e) {
+        return json(
+          {
+            ok: false,
+            error: e?.message || String(e)
+          },
+          503
+        );
+      }
+    }
+
     if (url.pathname === "/api/rcon-server-info") {
       try {
         const result = await prisonerFetch(
