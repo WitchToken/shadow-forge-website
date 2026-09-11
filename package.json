@@ -1,0 +1,9 @@
+{
+  "name": "shadow-forge",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Shadow Forge SCUM server website and Cloudflare Worker",
+  "devDependencies": {
+    "wrangler": "4.131.1"
+  }
+}
