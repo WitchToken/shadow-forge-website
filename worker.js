@@ -781,6 +781,274 @@ export default {
       }
     }
 
+
+    // ============================================================
+    // PUBLIC API DISCOVERY V5
+    // V4 proved that the main Nuxt bundle contains lazy-loaded
+    // components for:
+    //   /rcon-dashboard
+    //   /network-monitoring
+    // The actual API calls are very likely inside those lazy chunks.
+    //
+    // V5 therefore:
+    // 1. Downloads the main Nuxt bundle.
+    // 2. Extracts lazy-loaded .js chunk filenames.
+    // 3. Downloads those chunks.
+    // 4. Searches them for real API calls / endpoint strings.
+    //
+    // SAFE OUTPUT:
+    // - no Authorization headers
+    // - no tokens
+    // - no cookies
+    // - no localStorage/sessionStorage values
+    // - no full JS bundles
+    // ============================================================
+    if (url.pathname === "/api/public-discovery-v5") {
+      try {
+        const panelUrl = "https://scumpanel.theprisonerbot.com/";
+        const panelResponse = await fetch(panelUrl, {
+          method: "GET",
+          headers: { "Accept": "text/html" }
+        });
+
+        const html = await panelResponse.text();
+
+        const scriptMatches = [
+          ...html.matchAll(/(?:src|href)="([^"]+\.js(?:\?[^"]*)?)"/gi)
+        ];
+
+        const mainAssets = [];
+
+        for (const match of scriptMatches) {
+          const asset = new URL(match[1], panelUrl).toString();
+          if (!mainAssets.includes(asset)) mainAssets.push(asset);
+        }
+
+        const allAssets = new Set(mainAssets);
+
+        // Vite/Nuxt lazy imports use patterns such as:
+        // import("./Kep-BVJg.js")
+        // import("./BbFNcS-d.js")
+        // and __vite__mapDeps([...]).
+        //
+        // We extract every relative .js import visible in the
+        // currently loaded bundle. This is more reliable than
+        // guessing API endpoint names.
+        const discoveredImports = new Set();
+
+        for (const assetUrl of mainAssets.slice(0, 10)) {
+          try {
+            const response = await fetch(assetUrl, {
+              method: "GET",
+              headers: {
+                "Accept": "application/javascript,text/javascript,*/*"
+              }
+            });
+
+            const text = await response.text();
+
+            const importPatterns = [
+              /import\(["'](\.\/[^"']+\.js)["']\)/g,
+              /import\(["'](\.\/[^"']+\.m?js[^"']*)["']\)/g,
+              /["'](\.\/[A-Za-z0-9_-]+\.js)["']/g
+            ];
+
+            for (const regex of importPatterns) {
+              let match;
+              while ((match = regex.exec(text)) !== null) {
+                const absolute = new URL(
+                  match[1],
+                  assetUrl
+                ).toString();
+
+                discoveredImports.add(absolute);
+                allAssets.add(absolute);
+              }
+            }
+          } catch (_) {
+            // Individual bundle failures are reported later.
+          }
+        }
+
+        // Prioritize chunks whose names are associated with the
+        // two relevant areas discovered in V4.
+        const priorityTerms = [
+          "Kep-BVJg",
+          "BbFNcS-d",
+          "rcon",
+          "network",
+          "monitor"
+        ];
+
+        const assetArray = [...allAssets];
+
+        assetArray.sort((a, b) => {
+          const aScore = priorityTerms.reduce(
+            (n, term) => n + (a.toLowerCase().includes(term.toLowerCase()) ? 1 : 0),
+            0
+          );
+          const bScore = priorityTerms.reduce(
+            (n, term) => n + (b.toLowerCase().includes(term.toLowerCase()) ? 1 : 0),
+            0
+          );
+          return bScore - aScore;
+        });
+
+        const selectedAssets = assetArray.slice(0, 40);
+        const bundles = [];
+
+        function addMatches(set, text, regex, limit = 500) {
+          let match;
+
+          while ((match = regex.exec(text)) !== null && set.size < limit) {
+            const value = match[1]
+              .replace(/\\(["'`\\])/g, "$1")
+              .replace(/[\\"'`;,)\]}]+$/g, "")
+              .trim();
+
+            if (
+              value.length >= 2 &&
+              value.length <= 350 &&
+              !/token|authorization|cookie|password|secret|localstorage|sessionstorage/i.test(value)
+            ) {
+              set.add(value);
+            }
+          }
+        }
+
+        for (const assetUrl of selectedAssets) {
+          try {
+            const response = await fetch(assetUrl, {
+              method: "GET",
+              headers: {
+                "Accept": "application/javascript,text/javascript,*/*"
+              }
+            });
+
+            const text = await response.text();
+
+            const endpointCandidates = new Set();
+            const apiCallCandidates = new Set();
+            const contextHits = [];
+
+            // Direct string paths.
+            addMatches(
+              endpointCandidates,
+              text,
+              /["'`]([^"'`]{0,260}\/(?:api|admin|rcon|players|server|monitoring)[^"'`]{0,260})["'`]/gi
+            );
+
+            // API-relevant strings even when the /api prefix is
+            // supplied separately as baseURL.
+            addMatches(
+              endpointCandidates,
+              text,
+              /["'`]([^"'`]{1,260}(?:rcon-dashboard|server-info|server-status|online-players|player-list|playerlist|player_tracking|network_monitoring|monitoring|players|server)[^"'`]{0,260})["'`]/gi
+            );
+
+            // Look for actual fetch calls and capture a short,
+            // sanitized expression around them.
+            const callRegex =
+              /(?:\$fetch|useFetch|fetch|axios\.(?:get|post|put|delete))\s*\(/gi;
+
+            let match;
+            while (
+              (match = callRegex.exec(text)) !== null &&
+              contextHits.length < 250
+            ) {
+              const start = Math.max(0, match.index - 120);
+              const end = Math.min(text.length, match.index + 650);
+
+              let snippet = text
+                .slice(start, end)
+                .replace(/\s+/g, " ")
+                .replace(
+                  /Bearer\s+[A-Za-z0-9._~+/=-]+/gi,
+                  "Bearer [REDACTED]"
+                )
+                .replace(
+                  /(?:token|authorization|cookie|password|secret)\s*[:=]\s*["'`][^"'`]{0,300}["'`]/gi,
+                  "$1=[REDACTED]"
+                );
+
+              // Don't return a snippet if it still appears to
+              // contain credential material.
+              if (
+                !/token|authorization|cookie|password|secret/i.test(snippet)
+              ) {
+                contextHits.push(snippet);
+              }
+
+              const nearby = text.slice(
+                match.index,
+                Math.min(text.length, match.index + 500)
+              );
+
+              addMatches(
+                apiCallCandidates,
+                nearby,
+                /["'`]([^"'`]{1,300})["'`]/g,
+                250
+              );
+            }
+
+            // Specifically expose baseURL-like configuration values,
+            // but never credential values.
+            const baseUrlCandidates = new Set();
+
+            addMatches(
+              baseUrlCandidates,
+              text,
+              /(?:baseURL|apiUrl|apiURL|baseUrl)\s*[:=]\s*["'`]([^"'`]{1,300})["'`]/gi,
+              100
+            );
+
+            bundles.push({
+              asset: assetUrl,
+              priority_match: priorityTerms.filter(
+                term => assetUrl.toLowerCase().includes(term.toLowerCase())
+              ),
+              status: response.status,
+              content_type:
+                response.headers.get("content-type") || "",
+              bytes: text.length,
+              endpoint_candidates: [...endpointCandidates].slice(0, 500),
+              api_call_candidates: [...apiCallCandidates].slice(0, 500),
+              base_url_candidates: [...baseUrlCandidates].slice(0, 100),
+              fetch_call_contexts: contextHits.slice(0, 250)
+            });
+          } catch (e) {
+            bundles.push({
+              asset: assetUrl,
+              ok: false,
+              error: e?.message || String(e)
+            });
+          }
+        }
+
+        return json({
+          ok: true,
+          source: "Prisoner Bot lazy bundle API discovery V5",
+          panel_status: panelResponse.status,
+          api_base: BASE,
+          main_assets_found: mainAssets.length,
+          lazy_assets_discovered: discoveredImports.size,
+          assets_tested: selectedAssets.length,
+          note:
+            "V5 scans lazy-loaded Nuxt/Vite bundles for the real API calls used by RCON Dashboard and Network Monitoring. Credentials are never returned.",
+          bundles
+        });
+      } catch (e) {
+        return json(
+          {
+            ok: false,
+            error: e?.message || String(e)
+          },
+          503
+        );
+      }
+    }
+
     if (url.pathname === "/api/rcon-server-info") {
       try {
         const result = await prisonerFetch(
