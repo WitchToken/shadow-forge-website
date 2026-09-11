@@ -223,6 +223,88 @@ export default {
       return json({ ok: true, service: "shadow-forge-api", prisoner_base_url: BASE, token_configured: Boolean(env.PRISONER_API_TOKEN), endpoints: PATHS });
     }
 
+    // TEMPORARY: Public API discovery.
+    // Read-only probing of likely Public API routes.
+    // The PRISONER_API_TOKEN is never returned.
+    if (url.pathname === "/api/public-discovery") {
+      const candidates = [
+        "/server/status",
+        "/server/players",
+        "/server/online",
+        "/server/online-players",
+        "/server/player-list",
+        "/server/live",
+        "/server/live-status",
+        "/players/online",
+        "/players/online-list",
+        "/players/current",
+        "/players/active",
+        "/players/live",
+        "/online",
+        "/online-players",
+        "/online_players",
+        "/status",
+        "/status/server",
+        "/monitoring/status",
+        "/monitoring/players",
+        "/monitoring/online-players"
+      ];
+
+      const results = [];
+
+      for (const path of candidates) {
+        try {
+          const result = await prisonerFetch(env, path);
+
+          let summary = {
+            path,
+            ok: result.ok,
+            status: result.status,
+            data_type: Array.isArray(result.data)
+              ? "array"
+              : typeof result.data
+          };
+
+          if (result.ok && result.data && typeof result.data === "object") {
+            summary.keys = Object.keys(result.data).slice(0, 40);
+
+            const data = result.data;
+
+            summary.hints = {
+              players: data.players ?? null,
+              playersOnline: data.playersOnline ?? null,
+              onlinePlayers: data.onlinePlayers ?? null,
+              playerCount: data.playerCount ?? null,
+              currentPlayers: data.currentPlayers ?? null,
+              connectedPlayers: data.connectedPlayers ?? null,
+              hasPlayerList: Array.isArray(data.playerList),
+              playerListLength: Array.isArray(data.playerList)
+                ? data.playerList.length
+                : null
+            };
+          }
+
+          results.push(summary);
+        } catch (e) {
+          results.push({
+            path,
+            ok: false,
+            error: e.message
+          });
+        }
+      }
+
+      return json({
+        ok: true,
+        base: BASE,
+        tested: candidates.length,
+        hits: results.filter(
+          x => x.ok && x.status === 200
+        ),
+        results
+      });
+    }
+
     if (url.pathname === "/api/rcon-server-info") {
       try {
         const result = await prisonerFetch(env, PATHS.rconServerInfo);
