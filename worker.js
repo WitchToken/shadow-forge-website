@@ -283,7 +283,7 @@ export default {
     if (url.pathname === "/api/health") {
       return json({
         ok: true,
-        service: "shadow-forge-live-api-v2.6",
+        service: "shadow-forge-live-api-v2.8",
         timestamp: new Date().toISOString(),
         integrations: {
           scumQueryBridge: Boolean(env.SCUM_QUERY_BRIDGE_URL),
@@ -312,6 +312,7 @@ export default {
           server,
           sources: {
             query: Boolean(query.ok),
+            scumQuery: { ok: Boolean(query.ok), configured: Boolean(query.configured) },
             gs4u: Boolean(gs4u.ok),
             prisonerBot: Boolean(prisonerServer.ok || prisonerPlayers.ok || kills.ok || playtime.ok)
           }

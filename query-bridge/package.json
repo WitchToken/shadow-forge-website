@@ -1,13 +1,8 @@
 {
   "name": "shadow-forge-scum-query-bridge",
-  "version": "1.0.0",
+  "version": "2.8.0",
   "private": true,
-  "description": "Small HTTP bridge for the Shadow Forge SCUM A2S query port.",
   "type": "commonjs",
-  "engines": {
-    "node": ">=18"
-  },
-  "scripts": {
-    "start": "node server.js"
-  }
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node server.js" }
 }

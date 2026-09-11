@@ -1,74 +1,84 @@
-# Shadow Forge V2.6 — All Live Connections
+# Shadow Forge V2.8 — Production Live Stack
 
-## Live data sources
+This package separates the public Cloudflare site from the private SCUM A2S query bridge.
 
-The public website combines the integrations already available for Shadow Forge:
-
-1. **SCUM A2S / Source Query via private HTTP bridge**
-   - Live player count
-   - Query ping
-   - Map
-   - SCUM version
-   - Live player names when A2S_PLAYER responds
-2. **GS4u Live Monitor**
-   - Online/offline fallback
-   - Live player count fallback
-   - The site's reported slot count is intentionally ignored; Shadow Forge is fixed to **60 slots**.
-3. **Prisoner Bot Public API**
-   - Server fallback
-   - Kills leaderboard
-   - Playtime leaderboard
-
-## Public website data
-
-Only these gameplay/community values are exposed:
-
-- Online/offline
+## Public live values
 - Survivors
 - 60 server slots
 - Query ping
-- Version
+- SCUM version
 - Map
 - Top Kills
 - Playtime
-- Discord invite
-- Server connect address
+- Discord
 
-No query port, query host, bridge key, Prisoner Bot token, RCON data, Steam IDs, or raw upstream responses are returned by the public API.
+## Private values
+The query host, query ports, bridge key and Prisoner Bot token are never returned to the browser.
 
-## Cloudflare Worker variables
+## 1. Cloudflare Worker secrets
+Set these in the `shadow-forge` Worker:
 
-Required/optional:
+- `PRISONER_API_TOKEN` = your Prisoner Bot Public API token
+- `SCUM_QUERY_BRIDGE_URL` = HTTPS URL ending in `/query`
+- `SCUM_QUERY_BRIDGE_KEY` = the same random secret as `BRIDGE_KEY`
+- `DISCORD_URL` = `https://discord.gg/XDsAjmSFhq`
 
-- `PRISONER_API_TOKEN` — Prisoner Bot Public API token
-- `SCUM_QUERY_BRIDGE_URL` — private HTTPS URL of the query bridge
-- `SCUM_QUERY_BRIDGE_KEY` — secret shared with the bridge
-- `DISCORD_URL` — Shadow Forge Discord invite
-
-The Worker never sends the SCUM query port to the browser.
-
-## Query bridge variables
-
-- `SCUM_HOST` — private SCUM server host
-- `SCUM_QUERY_PORT` — private query port
-- `BRIDGE_KEY` — required shared secret
-- `REQUIRE_KEY=true` — recommended/default
-- `PORT` — HTTP listener port
-- `QUERY_TIMEOUT_MS` — UDP timeout
-- `ALLOWED_ORIGIN` — optional CORS origin
-
-The bridge is intentionally a fixed-target query service. It does not accept arbitrary host/port values, so it cannot be used as an open UDP proxy.
-
-## Cloudflare deployment
-
-Root directory: `/`
-
-Build command: none
-
-Deploy command:
+## 2. Run the bridge on a Linux VPS
+Host-Unlimited offers Linux Debian/Ubuntu vServers with SSH access. The bridge needs a host that can send outbound UDP to the SCUM query service and expose one HTTPS endpoint.
 
 ```bash
-npx wrangler deploy
+sudo apt update
+sudo apt install -y nodejs npm nginx
+mkdir -p ~/shadow-forge-query
+cd ~/shadow-forge-query
 ```
 
-Production branch: `main`
+Copy `query-bridge/server.js`, `package.json` and `.env` here.
+
+Example `.env`:
+
+```env
+SCUM_HOST=176.57.174.127
+SCUM_QUERY_PORT=28215
+SCUM_QUERY_FALLBACK_PORTS=28204
+PORT=8787
+BRIDGE_KEY=REPLACE_WITH_A_LONG_RANDOM_SECRET
+REQUIRE_KEY=true
+ALLOWED_ORIGIN=https://shadow-forge.sveamareenbusiness.workers.dev
+QUERY_TIMEOUT_MS=3000
+```
+
+Start:
+
+```bash
+node server.js
+```
+
+The bridge tries the configured query port first and then the optional fallback list. It never accepts an arbitrary host/port from the request, so it is not an open UDP proxy.
+
+## 3. HTTPS reverse proxy
+Put Nginx/Caddy/Cloudflare Tunnel in front of port 8787 and use the resulting HTTPS `/query` URL as `SCUM_QUERY_BRIDGE_URL`.
+
+## 4. Test
+Local bridge health:
+
+```bash
+curl http://127.0.0.1:8787/health
+```
+
+Authenticated query:
+
+```bash
+curl -H "X-Shadow-Forge-Key: YOUR_KEY" http://127.0.0.1:8787/query
+```
+
+A successful response contains server name, map, version, player count, max players, query ping and player names. The public Worker strips all internal connection details before returning data to the site.
+
+## Prisoner Bot
+The Worker calls the documented Public API endpoints:
+- `/server`
+- `/players`
+- `/leaderboard/kills`
+- `/leaderboard/playtime`
+
+The token is server-side only.
