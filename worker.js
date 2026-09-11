@@ -127,6 +127,33 @@ function normalizeLeaderboard(data, kind) {
   });
 }
 
+function normalizePlayerKey(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function enrichLivePlayers(players, kills, playtime) {
+  const killRows = Array.isArray(kills) ? kills : [];
+  const playtimeRows = Array.isArray(playtime) ? playtime : [];
+  return (Array.isArray(players) ? players : []).map((player, index) => {
+    const key = normalizePlayerKey(player?.name);
+    const killRow = killRows.find(row => normalizePlayerKey(row?.name) === key);
+    const playtimeRow = playtimeRows.find(row => normalizePlayerKey(row?.name) === key);
+    return {
+      ...player,
+      id: player?.id ?? index + 1,
+      online: true,
+      status: "ONLINE",
+      killRank: killRow?.rank ?? null,
+      kills: killRow?.value ?? null,
+      playtimeRank: playtimeRow?.rank ?? null,
+      playtime: playtimeRow?.value ?? null
+    };
+  });
+}
+
 async function readJson(response) {
   const text = await response.text();
   try { return JSON.parse(text); } catch { return null; }
@@ -199,8 +226,6 @@ async function prisonerFetch(env, path) {
   }
 }
 
-
-
 async function prisonerCommand(env, commands) {
   if (!env.PRISONER_API_TOKEN) {
     return { ok: false, status: 503, responseMs: 0, data: null, error: "Prisoner Bot not configured" };
@@ -238,7 +263,7 @@ function parseRconPlayers(data) {
   const result = Array.isArray(data?.results) ? data.results[0] : null;
   const output = Array.isArray(result?.output) ? result.output : [];
   const players = [];
-  const pattern = /^\\s*\\d+\\.\\s*(.*?)\\s*\\((\\d{10,20})\\)\\s*$/;
+  const pattern = /^\s*\d+\.\s*(.*?)\s*\((\d{10,20})\)\s*$/;
 
   for (const raw of output) {
     const line = String(raw ?? "").trim();
@@ -254,12 +279,11 @@ function parseRconPlayers(data) {
       continue;
     }
 
-    // Fallback parser for slightly different SCUM/RCON formatting.
-    const steamMatch = line.match(/(\\d{10,20})/);
+    const steamMatch = line.match(/(\d{10,20})/);
     if (steamMatch) {
       const before = line
-        .replace(/^\\s*\\d+\\.\\s*/, "")
-        .replace(/\\s*\\(\\d{10,20}\\).*$/, "")
+        .replace(/^\s*\d+\.\s*/, "")
+        .replace(/\s*\(\d{10,20}\).*$/, "")
         .trim();
       if (before) {
         players.push({
@@ -283,7 +307,7 @@ function parseRconPlayers(data) {
 }
 
 async function prisonerLivePlayers(env) {
-  return cachedJson("prisoner-rcon-players", async () => {
+  return cachedData("prisoner-rcon-players", async () => {
     const result = await prisonerCommand(env, ["#ListPlayers"]);
     const parsed = result.ok ? parseRconPlayers(result.data) : {
       ok: false,
@@ -341,20 +365,26 @@ async function gs4uFetch() {
   }
 }
 
-async function cachedJson(key, loader, ttl) {
+async function cachedData(key, loader, ttl) {
   const cache = caches.default;
   const cacheKey = new Request(`https://shadow-forge-cache.invalid/${key}`);
   const hit = await cache.match(cacheKey);
   if (hit) {
     const stored = Number(hit.headers.get("X-SF-Stored") || 0);
-    if (stored && Date.now() - stored < ttl) return new Response(hit.body, hit);
+    if (stored && Date.now() - stored < ttl) {
+      try { return await hit.json(); } catch {}
+    }
   }
-  const response = json(await loader());
+  const data = await loader();
+  const response = json(data);
   const headers = new Headers(response.headers);
   headers.set("X-SF-Stored", String(Date.now()));
-  const stored = new Response(response.body, { status: 200, headers });
-  await cache.put(cacheKey, stored.clone());
-  return stored;
+  await cache.put(cacheKey, new Response(JSON.stringify(data), { status: 200, headers }));
+  return data;
+}
+
+async function cachedJson(key, loader, ttl) {
+  return json(await cachedData(key, loader, ttl));
 }
 
 function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, prisonerLive, kills, playtime) {
@@ -363,6 +393,9 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, prisonerLive, kill
   const gmServer = gm?.ok ? gm.server : null;
   const gmPlayers = gm?.players ?? [];
   const rconPlayers = prisonerLive?.ok ? (prisonerLive.players ?? []) : [];
+  const killRows = kills?.ok ? normalizeLeaderboard(kills.data, "kills") : [];
+  const playtimeRows = playtime?.ok ? normalizeLeaderboard(playtime.data, "playtime") : [];
+  const enrichedRconPlayers = enrichLivePlayers(rconPlayers, killRows, playtimeRows);
   const gServer = gs4u?.ok ? gs4u.server : null;
 
   const online = gm?.ok
@@ -371,14 +404,14 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, prisonerLive, kill
       ? gServer?.online !== false
       : pServer?.online === true;
 
-  const currentPlayers = rconPlayers.length > 0
-    ? rconPlayers.length
+  const currentPlayers = enrichedRconPlayers.length > 0
+    ? enrichedRconPlayers.length
     : (prisonerLive?.ok && prisonerLive.count === 0
       ? 0
       : numeric(gmServer?.players) ?? numeric(gServer?.players) ?? numeric(pServer?.players));
   const version = gmServer?.version || pServer?.version || null;
   const ping = numeric(gm?.responseMs);
-  const playerList = prisonerLive?.ok ? rconPlayers : (gm?.playersOk ? gmPlayers : []);
+  const playerList = prisonerLive?.ok ? enrichedRconPlayers : (gm?.playersOk ? gmPlayers : []);
   const source = prisonerLive?.ok ? "Prisoner Bot RCON" : gm?.ok ? "GAMEMONITORING" : gs4u?.ok ? "GS4u Live Monitor" : pServer ? "Prisoner Bot" : "Nicht verfügbar";
 
   return {
@@ -394,12 +427,11 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, prisonerLive, kill
     playerListSource: prisonerLive?.ok ? "Prisoner Bot RCON" : gm?.playersOk ? "GAMEMONITORING" : "Keine Live-Namensquelle",
     liveSource: source,
     leaderboards: {
-      kills: kills?.ok ? normalizeLeaderboard(kills.data, "kills") : [],
-      playtime: playtime?.ok ? normalizeLeaderboard(playtime.data, "playtime") : []
+      kills: killRows,
+      playtime: playtimeRows
     }
   };
 }
-
 
 function pickFirst(obj, keys) {
   if (!obj || typeof obj !== "object") return null;
