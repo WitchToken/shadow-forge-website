@@ -11,7 +11,7 @@ function json(data, status = 200) {
     status,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       "Cache-Control": "no-store",
       "Content-Type": "application/json; charset=UTF-8"
@@ -44,7 +44,13 @@ function parseRconPlayers(data) {
       if (name) players.push({ name, steamId: steamMatch[1] });
     }
   }
-  return { ok: Boolean(result?.ok) && !result?.error, players };
+  return {
+    ok: Boolean(result?.ok) && !result?.error,
+    resultOk: Boolean(result?.ok),
+    resultError: result?.error ? String(result.error) : null,
+    outputCount: output.length,
+    players
+  };
 }
 
 async function getOnlinePlayers(env) {
@@ -61,7 +67,19 @@ async function getOnlinePlayers(env) {
     });
     const data = await response.json().catch(() => null);
     if (!response.ok) return { ok: false, players: [], error: `HTTP ${response.status}` };
-    return parseRconPlayers(data);
+    const parsed = parseRconPlayers(data);
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        players: parsed.players,
+        error: parsed.resultError || `#ListPlayers ohne erfolgreiches Ergebnis (output=${parsed.outputCount})`,
+        diagnostics: {
+          resultOk: parsed.resultOk,
+          outputCount: parsed.outputCount
+        }
+      };
+    }
+    return { ok: true, players: parsed.players, diagnostics: { outputCount: parsed.outputCount } };
   } catch (error) {
     return { ok: false, players: [], error: error instanceof Error ? error.message : String(error) };
   }
@@ -77,10 +95,32 @@ function formatPlaytime(seconds) {
   return `${minutes}m`;
 }
 
+async function saveMeta(env, data) {
+  if (!env.KILLFEED_KV) return;
+  try { await env.KILLFEED_KV.put(META_KEY, JSON.stringify(data)); } catch {}
+}
+
 async function trackPlaytime(env) {
-  if (!env.KILLFEED_KV) return { ok: false, tracked: 0, error: "KILLFEED_KV fehlt" };
+  const started = Date.now();
+  if (!env.KILLFEED_KV) {
+    const result = { ok: false, tracked: 0, online: 0, error: "KILLFEED_KV fehlt", lastError: "KILLFEED_KV fehlt", durationMs: Date.now() - started };
+    return result;
+  }
+
   const online = await getOnlinePlayers(env);
-  if (!online.ok) return { ok: false, tracked: 0, error: online.error };
+  if (!online.ok) {
+    const result = {
+      ok: false,
+      tracked: 0,
+      online: online.players?.length || 0,
+      error: online.error,
+      lastError: online.error,
+      diagnostics: online.diagnostics || null,
+      durationMs: Date.now() - started
+    };
+    await saveMeta(env, { ...result, lastRun: Date.now(), lastRunIso: new Date().toISOString() });
+    return result;
+  }
 
   const now = Date.now();
   let tracked = 0;
@@ -110,8 +150,23 @@ async function trackPlaytime(env) {
     tracked += 1;
   }
 
-  await env.KILLFEED_KV.put(META_KEY, JSON.stringify({ lastRun: now, online: online.players.length }));
-  return { ok: true, tracked, online: online.players.length, timestamp: new Date(now).toISOString() };
+  const result = {
+    ok: true,
+    tracked,
+    online: online.players.length,
+    names: online.players.map(player => player.name).filter(Boolean).slice(0, 25),
+    timestamp: new Date(now).toISOString(),
+    durationMs: Date.now() - started,
+    error: null,
+    lastError: null
+  };
+
+  await saveMeta(env, {
+    ...result,
+    lastRun: now,
+    lastRunIso: new Date(now).toISOString()
+  });
+  return result;
 }
 
 async function loadTrackedPlaytime(env) {
@@ -159,12 +214,40 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return json({ ok: true });
+
     if (url.pathname === "/api/leaderboard") return handleLeaderboard(request, env);
+
+    if (url.pathname === "/api/playtime/tick") {
+      const result = await trackPlaytime(env);
+      return json({
+        ...result,
+        endpoint: "/api/playtime/tick",
+        note: "Manueller Playtime-Tracker-Lauf"
+      }, result.ok ? 200 : 502);
+    }
+
     if (url.pathname === "/api/playtime/status") {
       const tracked = await loadTrackedPlaytime(env);
       const meta = env.KILLFEED_KV ? await env.KILLFEED_KV.get(META_KEY, "json").catch(() => null) : null;
-      return json({ ok: true, source: "Shadow Forge Playtime Tracker", count: tracked.length, lastRun: meta?.lastRun ? new Date(meta.lastRun).toISOString() : null, leaderboard: tracked });
+      const lastRun = Number(meta?.lastRun) || null;
+      return json({
+        ok: true,
+        source: "Shadow Forge Playtime Tracker",
+        configured: {
+          prisonerApiToken: Boolean(env.PRISONER_API_TOKEN),
+          killfeedKv: Boolean(env.KILLFEED_KV)
+        },
+        lastRun: lastRun ? new Date(lastRun).toISOString() : null,
+        lastRunAgeSeconds: lastRun ? Math.max(0, Math.floor((Date.now() - lastRun) / 1000)) : null,
+        trackerOk: meta?.ok ?? null,
+        online: meta?.online ?? 0,
+        tracked: meta?.tracked ?? 0,
+        lastError: meta?.lastError || null,
+        durationMs: meta?.durationMs ?? null,
+        leaderboard: tracked
+      });
     }
+
     return leaderboardWorker.fetch(request, env, ctx);
   },
 
