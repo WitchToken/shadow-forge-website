@@ -1,84 +1,40 @@
-# Shadow Forge V2.8 — Production Live Stack
+# Shadow Forge V3 — GAMEMONITORING Live Stack
 
-This package separates the public Cloudflare site from the private SCUM A2S query bridge.
+This version uses GAMEMONITORING as the public HTTPS server-monitor source. No VPS, UDP bridge, VPC service or query bridge is required.
 
-## Public live values
-- Survivors
-- 60 server slots
-- Query ping
-- SCUM version
-- Map
-- Top Kills
-- Playtime
-- Discord
+## Live source
+- GAMEMONITORING server ID: `13954416`
+- Public API: `https://api.gamemonitoring.net/servers/13954416`
+- Shadow Forge connection address remains `176.57.174.127:28202`
+- Public website capacity is intentionally fixed to **60 slots**.
+- Map is intentionally displayed as **Island Map** because GAMEMONITORING currently reports no map value for Shadow Forge.
+- The displayed "Monitor Ping" is the HTTPS response time from GAMEMONITORING, not a raw UDP A2S query latency.
 
-## Private values
-The query host, query ports, bridge key and Prisoner Bot token are never returned to the browser.
-
-## 1. Cloudflare Worker secrets
-Set these in the `shadow-forge` Worker:
-
-- `PRISONER_API_TOKEN` = your Prisoner Bot Public API token
-- `SCUM_QUERY_BRIDGE_URL` = HTTPS URL ending in `/query`
-- `SCUM_QUERY_BRIDGE_KEY` = the same random secret as `BRIDGE_KEY`
-- `DISCORD_URL` = `https://discord.gg/XDsAjmSFhq`
-
-## 2. Run the bridge on a Linux VPS
-Host-Unlimited offers Linux Debian/Ubuntu vServers with SSH access. The bridge needs a host that can send outbound UDP to the SCUM query service and expose one HTTPS endpoint.
-
-```bash
-sudo apt update
-sudo apt install -y nodejs npm nginx
-mkdir -p ~/shadow-forge-query
-cd ~/shadow-forge-query
-```
-
-Copy `query-bridge/server.js`, `package.json` and `.env` here.
-
-Example `.env`:
-
-```env
-SCUM_HOST=176.57.174.127
-SCUM_QUERY_PORT=28215
-SCUM_QUERY_FALLBACK_PORTS=28204
-PORT=8787
-BRIDGE_KEY=REPLACE_WITH_A_LONG_RANDOM_SECRET
-REQUIRE_KEY=true
-ALLOWED_ORIGIN=https://shadow-forge.sveamareenbusiness.workers.dev
-QUERY_TIMEOUT_MS=3000
-```
-
-Start:
-
-```bash
-node server.js
-```
-
-The bridge tries the configured query port first and then the optional fallback list. It never accepts an arbitrary host/port from the request, so it is not an open UDP proxy.
-
-## 3. HTTPS reverse proxy
-Put Nginx/Caddy/Cloudflare Tunnel in front of port 8787 and use the resulting HTTPS `/query` URL as `SCUM_QUERY_BRIDGE_URL`.
-
-## 4. Test
-Local bridge health:
-
-```bash
-curl http://127.0.0.1:8787/health
-```
-
-Authenticated query:
-
-```bash
-curl -H "X-Shadow-Forge-Key: YOUR_KEY" http://127.0.0.1:8787/query
-```
-
-A successful response contains server name, map, version, player count, max players, query ping and player names. The public Worker strips all internal connection details before returning data to the site.
+## Fallback
+GS4u remains a fallback for online/player count if GAMEMONITORING is temporarily unavailable. Its stale slot value is ignored; the website always displays 60 slots.
 
 ## Prisoner Bot
-The Worker calls the documented Public API endpoints:
+The Worker optionally calls the documented Public API endpoints for server/player data and leaderboards:
 - `/server`
 - `/players`
 - `/leaderboard/kills`
 - `/leaderboard/playtime`
 
-The token is server-side only.
+Set only this Worker secret if you want Prisoner Bot rankings enabled:
+- `PRISONER_API_TOKEN`
+
+Also set:
+- `DISCORD_URL=https://discord.gg/XDsAjmSFhq`
+
+The Prisoner Bot token stays server-side and is never returned to the browser.
+
+## Cloudflare deployment
+Repository root:
+- `index.html`
+- `worker.js`
+- `wrangler.toml`
+
+Build command: none
+Deploy command: `npx wrangler deploy`
+
+No query-bridge directory is required in this version.

@@ -1,10 +1,13 @@
 const PRISONER_BASE = "https://scum.theprisonerbot.com/api";
 const GS4U_URL = "https://www.gs4u.net/de/s/436818";
+const GAMEMONITORING_BASE = "https://api.gamemonitoring.net";
+const GAMEMONITORING_SERVER_ID = "13954416";
 
 const PUBLIC_SERVER = {
   name: "Shadow Forge",
   connectAddress: "176.57.174.127:28202",
-  maxPlayers: 60
+  maxPlayers: 60,
+  map: "Island Map"
 };
 
 const PATHS = {
@@ -14,14 +17,14 @@ const PATHS = {
   playtime: "/leaderboard/playtime"
 };
 
-const LIVE_CACHE_MS = 5_000;
+const LIVE_CACHE_MS = 10_000;
 const LEADERBOARD_CACHE_MS = 30_000;
 
 function corsHeaders(extra = {}) {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Shadow-Forge-Key",
+    "Access-Control-Allow-Headers": "Content-Type",
     "Cache-Control": "no-store",
     "Content-Type": "application/json; charset=UTF-8",
     ...extra
@@ -68,50 +71,54 @@ function findValueByKey(value, keys, depth = 0) {
 }
 
 function numeric(value) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
+  return null;
 }
 
 function normalizeServer(data) {
-  const players = numeric(findValueByKey(data, ["players", "playersOnline", "onlinePlayers", "playerCount", "currentPlayers"]));
-  const maxPlayers = numeric(findValueByKey(data, ["maxPlayers", "max_players", "slots", "maxSlots", "capacity"]));
-  const onlineValue = findValueByKey(data, ["online", "isOnline", "serverOnline"]);
-  const version = findValueByKey(data, ["version", "serverVersion"]);
-  const map = findValueByKey(data, ["map", "mapName", "mapname"]);
+  const root = data?.response ?? data;
+  const players = numeric(root?.numplayers ?? root?.players ?? root?.playersOnline ?? root?.onlinePlayers ?? root?.playerCount ?? root?.currentPlayers);
+  const onlineValue = root?.status ?? root?.online ?? root?.isOnline ?? root?.serverOnline;
+  const version = root?.version ?? root?.serverVersion;
   return {
     online: typeof onlineValue === "boolean" ? onlineValue : true,
     players,
-    maxPlayers,
+    maxPlayers: PUBLIC_SERVER.maxPlayers,
     version: typeof version === "string" ? version : null,
-    map: typeof map === "string" ? map : null
+    map: PUBLIC_SERVER.map,
+    ping: null
   };
 }
 
 function normalizePlayers(data) {
-  const arr = findArray(data, ["players", "onlinePlayers", "online_players", "items", "entries", "records", "rows", "data", "results"]);
+  const root = data?.response ?? data;
+  const arr = findArray(root, ["players", "onlinePlayers", "online_players", "items", "entries", "records", "rows", "data", "results"]);
   if (!arr) return [];
   return arr.map((p, index) => {
     if (!isObject(p)) return { id: index + 1, name: String(p), ping: null };
     return {
       id: index + 1,
-      name: p.name ?? p.playerName ?? p.player_name ?? p.displayName ?? p.username ?? "Unknown Survivor",
+      name: p.name ?? p.playerName ?? p.player_name ?? p.displayName ?? p.username ?? p.nickname ?? "Unknown Survivor",
       ping: numeric(p.ping)
     };
   });
 }
 
 function normalizeLeaderboard(data, kind) {
-  const arr = findArray(data, ["leaderboard", "rankings", kind, "entries", "players", "items", "data"]) || [];
+  const root = data?.response ?? data;
+  const arr = findArray(root, ["leaderboard", "rankings", kind, "entries", "players", "items", "data"]) || [];
   return arr.map((item, index) => {
     if (!isObject(item)) return { rank: index + 1, name: String(item), value: null };
     let value = kind === "kills"
-      ? item.kills ?? item.killCount ?? item.killsCount ?? item.value ?? item.score ?? null
-      : item.playtime ?? item.playTime ?? item.totalPlaytime ?? item.hours ?? item.minutes ?? item.value ?? null;
+      ? item.kills ?? item.totalKills ?? item.killCount ?? item.killsCount ?? item.value ?? item.score ?? null
+      : item.playtime ?? item.playTime ?? item.totalPlaytime ?? item.total_playtime ?? item.hours ?? item.minutes ?? item.value ?? null;
     if (typeof value === "object" && value !== null) {
       value = value.formatted ?? value.hours ?? value.minutes ?? value.total ?? value.value ?? null;
     }
     return {
       rank: item.rank ?? item.position ?? index + 1,
-      name: item.name ?? item.playerName ?? item.player_name ?? item.displayName ?? item.username ?? "Unknown Survivor",
+      name: item.name ?? item.player ?? item.playerName ?? item.player_name ?? item.displayName ?? item.username ?? item.steamName ?? "Unknown Survivor",
       value
     };
   });
@@ -120,6 +127,53 @@ function normalizeLeaderboard(data, kind) {
 async function readJson(response) {
   const text = await response.text();
   try { return JSON.parse(text); } catch { return null; }
+}
+
+async function fetchJsonUrl(url) {
+  const started = Date.now();
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cf: { cacheTtl: 5, cacheEverything: false }
+    });
+    return {
+      ok: response.ok,
+      status: response.status,
+      responseMs: Date.now() - started,
+      data: await readJson(response),
+      error: response.ok ? null : `HTTP ${response.status}`
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 502,
+      responseMs: Date.now() - started,
+      data: null,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+async function gameMonitoringFetch() {
+  const serverUrl = `${GAMEMONITORING_BASE}/servers/${GAMEMONITORING_SERVER_ID}`;
+  const playersUrl = `${serverUrl}/players`;
+  const started = Date.now();
+  const [server, players] = await Promise.all([
+    fetchJsonUrl(serverUrl),
+    fetchJsonUrl(playersUrl)
+  ]);
+  return {
+    ok: server.ok,
+    configured: true,
+    responseMs: Date.now() - started,
+    server: server.ok ? normalizeServer(server.data) : null,
+    players: players.ok ? normalizePlayers(players.data) : [],
+    playersOk: players.ok,
+    serverStatus: server.status,
+    playersStatus: players.status,
+    error: server.ok ? null : server.error
+  };
 }
 
 async function prisonerFetch(env, path) {
@@ -153,20 +207,12 @@ function cleanText(value) {
     .trim();
 }
 
-function firstMatch(text, patterns) {
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
-
 async function gs4uFetch() {
   const started = Date.now();
   try {
     const response = await fetch(GS4U_URL, {
-      headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "ShadowForge-Live/2.6" },
-      cf: { cacheTtl: 5, cacheEverything: false }
+      headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "ShadowForge-Live/3.0" },
+      cf: { cacheTtl: 10, cacheEverything: false }
     });
     const html = await response.text();
     const text = cleanText(html);
@@ -176,36 +222,10 @@ async function gs4uFetch() {
     return {
       ok: response.ok,
       responseMs: Date.now() - started,
-      server: {
-        online,
-        players,
-        // Intentionally ignored: GS4u may lag behind the real Shadow Forge capacity.
-        maxPlayers: PUBLIC_SERVER.maxPlayers
-      }
+      server: { online, players, maxPlayers: PUBLIC_SERVER.maxPlayers }
     };
   } catch (error) {
     return { ok: false, responseMs: Date.now() - started, server: null, error: error instanceof Error ? error.message : String(error) };
-  }
-}
-
-async function queryBridgeFetch(env) {
-  if (!env.SCUM_QUERY_BRIDGE_URL) return { ok: false, configured: false, server: null, players: [], responseMs: 0 };
-  const started = Date.now();
-  try {
-    const headers = { Accept: "application/json" };
-    if (env.SCUM_QUERY_BRIDGE_KEY) headers["X-Shadow-Forge-Key"] = env.SCUM_QUERY_BRIDGE_KEY;
-    const response = await fetch(env.SCUM_QUERY_BRIDGE_URL, { headers, cf: { cacheTtl: 3, cacheEverything: false } });
-    const data = await readJson(response);
-    return {
-      ok: response.ok && data?.ok === true,
-      configured: true,
-      responseMs: Date.now() - started,
-      server: data?.server ?? null,
-      players: Array.isArray(data?.players) ? data.players : [],
-      error: data?.error ?? null
-    };
-  } catch (error) {
-    return { ok: false, configured: true, server: null, players: [], responseMs: Date.now() - started, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -225,33 +245,24 @@ async function cachedJson(key, loader, ttl) {
   return stored;
 }
 
-function publicServer(server) {
-  return {
-    online: Boolean(server?.online),
-    name: PUBLIC_SERVER.name,
-    players: numeric(server?.players),
-    maxPlayers: PUBLIC_SERVER.maxPlayers,
-    version: typeof server?.version === "string" && server.version.trim() ? server.version.trim() : null,
-    map: typeof server?.map === "string" && server.map.trim() && server.map.trim() !== "-" ? server.map.trim() : null,
-    ping: numeric(server?.ping)
-  };
-}
-
-function mergeLive(query, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
+function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
   const pServer = prisonerServer?.ok ? normalizeServer(prisonerServer.data) : null;
   const dbPlayers = prisonerPlayers?.ok ? normalizePlayers(prisonerPlayers.data) : [];
-  const qServer = query?.ok ? query.server : null;
+  const gmServer = gm?.ok ? gm.server : null;
+  const gmPlayers = gm?.players ?? [];
   const gServer = gs4u?.ok ? gs4u.server : null;
 
-  const online = query?.ok ? qServer?.online !== false : gs4u?.ok ? gServer?.online !== false : pServer?.online === true;
-  const currentPlayers = numeric(qServer?.players) ?? numeric(gServer?.players) ?? numeric(pServer?.players);
-  const version = qServer?.version || pServer?.version || null;
-  const map = qServer?.map || pServer?.map || null;
-  const ping = numeric(qServer?.ping);
-  const queryPlayerList = query?.ok ? query.players : [];
-  const playerList = queryPlayerList.map((p, i) => ({ id: i + 1, name: p?.name || "Unknown Survivor", ping: numeric(p?.ping) }));
+  const online = gm?.ok
+    ? gmServer?.online !== false
+    : gs4u?.ok
+      ? gServer?.online !== false
+      : pServer?.online === true;
 
-  const source = query?.ok ? "SCUM Query" : gs4u?.ok ? "GS4u Live Monitor" : pServer ? "Prisoner Bot" : "Nicht verfügbar";
+  const currentPlayers = numeric(gmServer?.players) ?? numeric(gServer?.players) ?? numeric(pServer?.players);
+  const version = gmServer?.version || pServer?.version || null;
+  const ping = numeric(gm?.responseMs);
+  const playerList = gm?.playersOk ? gmPlayers : [];
+  const source = gm?.ok ? "GAMEMONITORING" : gs4u?.ok ? "GS4u Live Monitor" : pServer ? "Prisoner Bot" : "Nicht verfügbar";
 
   return {
     online,
@@ -259,10 +270,11 @@ function mergeLive(query, gs4u, prisonerServer, prisonerPlayers, kills, playtime
     players: currentPlayers,
     maxPlayers: PUBLIC_SERVER.maxPlayers,
     version,
-    map,
+    map: PUBLIC_SERVER.map,
     ping,
+    pingLabel: "Monitor Ping",
     playerList,
-    playerListSource: queryPlayerList.length ? "SCUM Query" : "Keine Live-Namensquelle",
+    playerListSource: gm?.playersOk ? "GAMEMONITORING" : "Keine Live-Namensquelle",
     liveSource: source,
     leaderboards: {
       kills: kills?.ok ? normalizeLeaderboard(kills.data, "kills") : [],
@@ -277,16 +289,20 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
 
     if (url.pathname === "/api/config") {
-      return json({ ok: true, discordUrl: env.DISCORD_URL || "https://discord.gg/XDsAjmSFhq" });
+      return json({
+        ok: true,
+        discordUrl: env.DISCORD_URL || "https://discord.gg/XDsAjmSFhq"
+      });
     }
 
     if (url.pathname === "/api/health") {
       return json({
         ok: true,
-        service: "shadow-forge-live-api-v2.8",
+        service: "shadow-forge-live-api-v3-gamemonitoring",
         timestamp: new Date().toISOString(),
         integrations: {
-          scumQueryBridge: Boolean(env.SCUM_QUERY_BRIDGE_URL),
+          gameMonitoring: true,
+          gameMonitoringServerId: GAMEMONITORING_SERVER_ID,
           prisonerBot: Boolean(env.PRISONER_API_TOKEN),
           gs4uLiveFallback: true
         }
@@ -294,25 +310,24 @@ export default {
     }
 
     if (url.pathname === "/api/live") {
-      return cachedJson("live", async () => {
+      return cachedJson("live-v3", async () => {
         const started = Date.now();
-        const [query, gs4u, prisonerServer, prisonerPlayers, kills, playtime] = await Promise.all([
-          queryBridgeFetch(env),
+        const [gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime] = await Promise.all([
+          gameMonitoringFetch(),
           gs4uFetch(),
           prisonerFetch(env, PATHS.server),
           prisonerFetch(env, PATHS.players),
           prisonerFetch(env, PATHS.kills),
           prisonerFetch(env, PATHS.playtime)
         ]);
-        const server = mergeLive(query, gs4u, prisonerServer, prisonerPlayers, kills, playtime);
+        const server = mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime);
         return {
-          ok: Boolean(query.ok || gs4u.ok || prisonerServer.ok || prisonerPlayers.ok),
+          ok: Boolean(gm.ok || gs4u.ok || prisonerServer.ok || prisonerPlayers.ok),
           timestamp: new Date().toISOString(),
           responseMs: Date.now() - started,
           server,
           sources: {
-            query: Boolean(query.ok),
-            scumQuery: { ok: Boolean(query.ok), configured: Boolean(query.configured) },
+            gameMonitoring: { ok: Boolean(gm.ok), playersOk: Boolean(gm.playersOk), responseMs: gm.responseMs },
             gs4u: Boolean(gs4u.ok),
             prisonerBot: Boolean(prisonerServer.ok || prisonerPlayers.ok || kills.ok || playtime.ok)
           }
@@ -334,30 +349,29 @@ export default {
     }
 
     if (url.pathname === "/api/query") {
-      const result = await queryBridgeFetch(env);
+      const result = await gameMonitoringFetch();
       return json({
         ok: result.ok,
-        source: "SCUM A2S Query",
+        source: "GAMEMONITORING",
         server: result.server ? {
-          online: result.server.online === true,
-          players: numeric(result.server.players),
+          online: result.server.online,
+          players: result.server.players,
           maxPlayers: PUBLIC_SERVER.maxPlayers,
-          version: result.server.version ?? null,
-          map: result.server.map ?? null,
-          ping: numeric(result.server.ping)
+          version: result.server.version,
+          map: PUBLIC_SERVER.map,
+          ping: result.responseMs
         } : null,
-        players: result.ok ? result.players.map((p, i) => ({ id: i + 1, name: p?.name || "Unknown Survivor", ping: numeric(p?.ping) })) : []
+        players: result.playersOk ? result.players : []
       });
     }
 
     if (url.pathname === "/api/players") {
-      // Deliberately expose only live A2S names. The Prisoner Bot database is not necessarily an online list.
-      const result = await queryBridgeFetch(env);
+      const result = await gameMonitoringFetch();
       return json({
-        ok: result.ok,
-        source: result.ok ? "SCUM A2S Query" : "Nicht verfügbar",
-        count: result.ok ? result.players.length : 0,
-        players: result.ok ? result.players.map((p, i) => ({ id: i + 1, name: p?.name || "Unknown Survivor", ping: numeric(p?.ping) })) : []
+        ok: result.playersOk,
+        source: result.playersOk ? "GAMEMONITORING" : "Nicht verfügbar",
+        count: result.players.length,
+        players: result.players
       });
     }
 
