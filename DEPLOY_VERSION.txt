@@ -1,0 +1,3 @@
+Shadow Forge website deployment marker
+Version: 2026-09-11-live-player-names-only-v2
+The Survivors / Live Online Feed must render player names only. Detailed stats remain in Leaderboards and Live Killfeed.
