@@ -1,24 +1,20 @@
 const BASE = "https://scum.theprisonerbot.com/api";
-const PANEL = "https://scumpanel.theprisonerbot.com/";
 
-const TARGETS = [
-  "/admin/rcon-dashboard/status",
-  "/admin/rcon-dashboard/server-info",
-  "/admin/rcon-dashboard/exec-command",
-  "/admin/rcon-dashboard/player-stats",
-  "/admin/rcon-dashboard/set-player-attributes",
-  "/admin/rcon-dashboard/set-player-skill",
-  "/admin/rcon-dashboard/announce",
-  "/admin/rcon-dashboard/message-player",
-  "/admin/rcon-dashboard/kick-player",
-  "/admin/rcon-dashboard/ban-player"
-];
+const PATHS = {
+  server: "/server",
+  players: "/players",
+  kills: "/leaderboard/kills",
+  playtime: "/leaderboard/playtime"
+};
+
+const CACHE_TTL_MS = 20_000;
 
 function corsHeaders(extra = {}) {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
+    "Cache-Control": "no-store",
     "Content-Type": "application/json; charset=UTF-8",
     ...extra
   };
@@ -31,326 +27,295 @@ function json(data, status = 200) {
   });
 }
 
-function sanitize(text) {
-  return String(text || "")
-    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
-    .replace(
-      /(["'`]?Authorization["'`]?)\s*[:=]\s*([^,;}\n]+)/gi,
-      "$1: [REDACTED]"
-    )
-    .replace(
-      /(["'`]?PRISONER-BOT-TOKEN["'`]?)\s*[:=]\s*([^,;}\n]+)/gi,
-      "$1: [REDACTED]"
-    )
-    .replace(
-      /(["'`]?token["'`]?)\s*[:=]\s*(["'`])[^"'`]*\2/gi,
-      "$1: [REDACTED]"
-    )
-    .replace(
-      /(["'`]?cookie["'`]?)\s*[:=]\s*(["'`])[^"'`]*\2/gi,
-      "$1: [REDACTED]"
-    )
-    .replace(
-      /localStorage\.[A-Za-z0-9_$]+/gi,
-      "localStorage.[REDACTED]"
-    )
-    .replace(
-      /sessionStorage\.[A-Za-z0-9_$]+/gi,
-      "sessionStorage.[REDACTED]"
-    );
+function isObject(v) {
+  return v && typeof v === "object" && !Array.isArray(v);
 }
 
-function extractScripts(html) {
-  const out = [];
+function findArray(value, preferred = [], depth = 0) {
+  if (depth > 8 || value == null) return null;
+  if (Array.isArray(value)) return value;
+  if (!isObject(value)) return null;
 
-  for (const m of html.matchAll(
-    /(?:src|href)=["']([^"']+\.js(?:\?[^"']*)?)["']/gi
-  )) {
-    try {
-      const u = new URL(m[1], PANEL).toString();
-
-      if (!out.includes(u)) {
-        out.push(u);
-      }
-    } catch {}
+  for (const key of preferred) {
+    if (Array.isArray(value[key])) return value[key];
   }
 
-  return out;
-}
-
-function extractImports(text, baseUrl) {
-  const out = [];
-
-  const patterns = [
-    /import\s*\(\s*["'](\.\/[^"']+\.m?js[^"']*)["']\s*\)/g,
-    /(?:from|import)\s*["'](\.\/[^"']+\.m?js[^"']*)["']/g,
-    /["'](\.\/[A-Za-z0-9_-]+\.m?js)["']/g
+  const common = [
+    "players",
+    "onlinePlayers",
+    "online_players",
+    "leaderboard",
+    "rankings",
+    "items",
+    "results",
+    "rows",
+    "data",
+    "entries",
+    "records"
   ];
 
-  for (const re of patterns) {
-    let m;
-
-    while ((m = re.exec(text)) !== null) {
-      try {
-        const u = new URL(m[1], baseUrl).toString();
-
-        if (!out.includes(u)) {
-          out.push(u);
-        }
-      } catch {}
-    }
+  for (const key of common) {
+    if (Array.isArray(value[key])) return value[key];
   }
 
-  return out;
-}
-
-function scoreAsset(url) {
-  const s = url.toLowerCase();
-
-  let score = 0;
-
-  for (const term of [
-    "kep-bvjg",
-    "cuijuiko",
-    "rcon",
-    "network",
-    "monitor",
-    "api",
-    "auth",
-    "composable",
-    "chunk"
-  ]) {
-    if (s.includes(term)) {
-      score += 10;
-    }
+  for (const key of Object.keys(value)) {
+    const found = findArray(value[key], preferred, depth + 1);
+    if (found) return found;
   }
 
-  return score;
+  return null;
 }
 
-function snippetsAround(text, needle, radius = 1800, max = 6) {
-  const hits = [];
-  let from = 0;
+function findValueByKey(value, keys, depth = 0) {
+  if (depth > 10 || value == null) return undefined;
 
-  while (hits.length < max) {
-    const idx = text.indexOf(needle, from);
-
-    if (idx < 0) {
-      break;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findValueByKey(item, keys, depth + 1);
+      if (found !== undefined) return found;
     }
-
-    const start = Math.max(0, idx - radius);
-    const end = Math.min(
-      text.length,
-      idx + needle.length + radius
-    );
-
-    hits.push({
-      offset: idx,
-      snippet: sanitize(
-        text.slice(start, end)
-      ).replace(/\s+/g, " ")
-    });
-
-    from = idx + needle.length;
+    return undefined;
   }
 
-  return hits;
-}
+  if (!isObject(value)) return undefined;
 
-function regexContexts(text, regex, radius = 1000, max = 20) {
-  const hits = [];
-  let m;
+  const wanted = new Set(keys.map(k => String(k).toLowerCase()));
 
-  while (
-    hits.length < max &&
-    (m = regex.exec(text)) !== null
-  ) {
-    const start = Math.max(0, m.index - radius);
-
-    const end = Math.min(
-      text.length,
-      m.index + (m[0]?.length || 0) + radius
-    );
-
-    const snippet = sanitize(
-      text.slice(start, end)
-    ).replace(/\s+/g, " ");
-
-    if (snippet.length) {
-      hits.push({
-        offset: m.index,
-        snippet
-      });
-    }
+  for (const [key, val] of Object.entries(value)) {
+    if (wanted.has(key.toLowerCase())) return val;
   }
 
-  return hits;
+  for (const val of Object.values(value)) {
+    const found = findValueByKey(val, keys, depth + 1);
+    if (found !== undefined) return found;
+  }
+
+  return undefined;
 }
 
-async function fetchText(
-  url,
-  accept = "application/javascript,text/javascript,*/*"
-) {
-  const r = await fetch(url, {
+function findNumeric(value, keys) {
+  const found = findValueByKey(value, keys);
+  return typeof found === "number" && Number.isFinite(found) ? found : null;
+}
+
+function normalizeServer(data) {
+  const players = findNumeric(data, [
+    "players",
+    "playersOnline",
+    "onlinePlayers",
+    "playerCount",
+    "currentPlayers"
+  ]);
+
+  const maxPlayers = findNumeric(data, [
+    "maxPlayers",
+    "max_players",
+    "slots",
+    "maxSlots",
+    "capacity"
+  ]);
+
+  const online = findValueByKey(data, [
+    "online",
+    "isOnline",
+    "serverOnline"
+  ]);
+
+  const status = findValueByKey(data, [
+    "status",
+    "state"
+  ]);
+
+  const version = findValueByKey(data, [
+    "version",
+    "serverVersion"
+  ]);
+
+  return {
+    online: typeof online === "boolean" ? online : true,
+    players,
+    maxPlayers,
+    status: status ?? null,
+    version: version ?? null,
+    raw: data
+  };
+}
+
+function normalizePlayers(data) {
+  const arr = findArray(data, [
+    "players",
+    "onlinePlayers",
+    "online_players",
+    "items",
+    "entries",
+    "records",
+    "rows",
+    "data",
+    "results"
+  ]);
+
+  if (!arr) return [];
+
+  return arr.map((p, index) => {
+    if (!isObject(p)) {
+      return {
+        id: index,
+        name: String(p),
+        steamId: null
+      };
+    }
+
+    return {
+      id: p.id ?? index,
+      name:
+        p.name ??
+        p.playerName ??
+        p.player_name ??
+        p.displayName ??
+        p.username ??
+        "Unknown Survivor",
+      steamId:
+        p.steamId ??
+        p.steam_id ??
+        p.steamID ??
+        null,
+      playtime:
+        p.playtime ??
+        p.playTime ??
+        p.totalPlaytime ??
+        null
+    };
+  });
+}
+
+function normalizeLeaderboard(data, kind) {
+  const arr =
+    findArray(data, [
+      "leaderboard",
+      "rankings",
+      kind,
+      "entries",
+      "players",
+      "items",
+      "data"
+    ]) || [];
+
+  return arr.map((item, index) => {
+    if (!isObject(item)) {
+      return {
+        rank: index + 1,
+        name: String(item),
+        value: null
+      };
+    }
+
+    const value =
+      kind === "kills"
+        ? item.kills ??
+          item.killCount ??
+          item.killsCount ??
+          item.value ??
+          item.score ??
+          null
+        : item.playtime ??
+          item.playTime ??
+          item.totalPlaytime ??
+          item.hours ??
+          item.minutes ??
+          item.value ??
+          null;
+
+    return {
+      rank: item.rank ?? item.position ?? index + 1,
+      name:
+        item.name ??
+        item.playerName ??
+        item.player_name ??
+        item.displayName ??
+        item.username ??
+        "Unknown Survivor",
+      value
+    };
+  });
+}
+
+async function prisonerFetch(env, path, query = "") {
+  if (!env.PRISONER_API_TOKEN) {
+    throw new Error("PRISONER_API_TOKEN fehlt");
+  }
+
+  const target = new URL(path, BASE);
+  if (query) target.search = query;
+
+  const response = await fetch(target, {
+    method: "GET",
     headers: {
-      Accept: accept
+      "Accept": "application/json",
+      "PRISONER-BOT-TOKEN": env.PRISONER_API_TOKEN
     }
   });
 
+  const text = await response.text();
+
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = {
+      raw: text.slice(0, 1000)
+    };
+  }
+
   return {
-    status: r.status,
-    contentType: r.headers.get("content-type") || "",
-    text: await r.text()
+    ok: response.ok,
+    status: response.status,
+    endpoint: path,
+    data: body
   };
 }
 
-async function discover() {
-  const panel = await fetchText(
-    PANEL,
-    "text/html"
-  );
+/*
+ * Small edge cache.
+ * This protects the Prisoner Bot API from being hit on every browser refresh
+ * while keeping the public website feeling live.
+ */
+async function cachedFetch(env, path, query = "", ttl = CACHE_TTL_MS) {
+  const cache = caches.default;
+  const cacheUrl = new URL(`https://shadow-forge-cache.invalid${path}`);
+  cacheUrl.search = query || "";
 
-  const mainAssets = extractScripts(panel.text);
+  const cacheKey = new Request(cacheUrl.toString(), {
+    method: "GET"
+  });
 
-  const all = new Set(mainAssets);
-  const queue = [...mainAssets];
-  const scanned = [];
-
-  /*
-   * Follow imports for up to 3 levels.
-   * This is intended to find the actual API/auth
-   * helper used by the RCON dashboard.
-   */
-
-  for (
-    let depth = 0;
-    depth < 3 &&
-    queue.length &&
-    all.size < 80;
-    depth++
-  ) {
-    const current = queue.splice(0, queue.length);
-
-    for (const asset of current) {
-      try {
-        const r = await fetchText(asset);
-
-        scanned.push({
-          asset,
-          depth,
-          bytes: r.text.length
-        });
-
-        for (
-          const imp of extractImports(r.text, asset)
-        ) {
-          if (
-            !all.has(imp) &&
-            all.size < 80
-          ) {
-            all.add(imp);
-            queue.push(imp);
-          }
-        }
-      } catch {}
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const age = Number(cached.headers.get("X-Shadow-Forge-Age") || "0");
+    if (Date.now() - age < ttl) {
+      const clone = new Response(cached.body, cached);
+      clone.headers.set("X-Shadow-Forge-Cache", "HIT");
+      return clone;
     }
   }
 
-  const assets = [...all].sort(
-    (a, b) => scoreAsset(b) - scoreAsset(a)
-  );
+  const result = await prisonerFetch(env, path, query);
 
-  const selected = assets.slice(0, 60);
-  const bundles = [];
+  const response = json(result, result.ok ? 200 : result.status);
 
-  for (const asset of selected) {
-    try {
-      const r = await fetchText(asset);
-      const text = r.text;
+  const headers = new Headers(response.headers);
+  headers.set("X-Shadow-Forge-Age", String(Date.now()));
+  headers.set("X-Shadow-Forge-Cache", "MISS");
 
-      const targetHits = {};
+  const cacheResponse = new Response(response.body, {
+    status: response.status,
+    headers
+  });
 
-      for (const target of TARGETS) {
-        const h = snippetsAround(
-          text,
-          target,
-          2200,
-          8
-        );
-
-        if (h.length) {
-          targetHits[target] = h;
-        }
-      }
-
-      const authContexts = regexContexts(
-        text,
-        /Authorization|PRISONER-BOT-TOKEN|credentials\s*:|headers\s*:|apiUrl|baseURL|Bearer|ofetch|\$fetch|fetch\s*\(/gi,
-        900,
-        80
-      );
-
-      const imports = extractImports(
-        text,
-        asset
-      );
-
-      if (
-        Object.keys(targetHits).length ||
-        authContexts.length
-      ) {
-        bundles.push({
-          asset,
-          score: scoreAsset(asset),
-          status: r.status,
-          content_type: r.contentType,
-          bytes: text.length,
-          imports: imports.slice(0, 80),
-          target_contexts: targetHits,
-          auth_fetch_contexts: authContexts
-        });
-      }
-    } catch (e) {
-      bundles.push({
-        asset,
-        ok: false,
-        error: e?.message || String(e)
-      });
-    }
+  if (result.ok) {
+    await cache.put(cacheKey, cacheResponse.clone());
   }
 
-  return {
-    ok: true,
-    source:
-      "Prisoner Bot targeted RCON auth/API discovery V6",
-
-    api_base: BASE,
-
-    panel_status: panel.status,
-
-    panel_content_type:
-      panel.contentType,
-
-    main_assets_found:
-      mainAssets.length,
-
-    assets_discovered:
-      all.size,
-
-    assets_scanned_for_imports:
-      scanned.length,
-
-    assets_tested:
-      selected.length,
-
-    targets: TARGETS,
-
-    note:
-      "Only sanitized code context is returned. Credentials, tokens, cookies and storage values are redacted.",
-
-    bundles
-  };
+  return cacheResponse;
 }
 
 export default {
@@ -368,47 +333,223 @@ export default {
       return json({
         ok: true,
         service: "shadow-forge-api",
-
         prisoner_base_url: BASE,
-
-        token_configured:
-          Boolean(env.PRISONER_API_TOKEN),
-
-        discovery_v6:
-          "/api/public-discovery-v6"
+        token_configured: Boolean(env.PRISONER_API_TOKEN),
+        live_update_interval_seconds: 30,
+        public_endpoints: [
+          "/api/live",
+          "/api/server",
+          "/api/players",
+          "/api/leaderboard?type=kills",
+          "/api/leaderboard?type=playtime"
+        ]
       });
     }
 
-    if (
-      url.pathname ===
-      "/api/public-discovery-v6"
-    ) {
+    /*
+     * Main website endpoint.
+     * The frontend only has to call /api/live.
+     */
+    if (url.pathname === "/api/live") {
+      const started = Date.now();
+
       try {
-        return json(
-          await discover()
-        );
-      } catch (e) {
+        const [serverResponse, playersResponse] = await Promise.all([
+          prisonerFetch(env, PATHS.server),
+          prisonerFetch(env, PATHS.players)
+        ]);
+
+        const server = serverResponse.ok
+          ? normalizeServer(serverResponse.data)
+          : {
+              online: false,
+              players: null,
+              maxPlayers: null,
+              status: null,
+              version: null,
+              raw: null
+            };
+
+        const players = playersResponse.ok
+          ? normalizePlayers(playersResponse.data)
+          : [];
+
+        /*
+         * Important:
+         * /players is the confirmed Public API player database endpoint.
+         * It is NOT assumed to be the live RCON player list.
+         *
+         * If /server itself contains a player count, use it.
+         * Otherwise leave player count null rather than inventing it.
+         */
+        const livePlayerCount =
+          server.players !== null
+            ? server.players
+            : null;
+
+        return json({
+          ok: serverResponse.ok || playersResponse.ok,
+          source: "Shadow Forge Live API",
+          timestamp: new Date().toISOString(),
+          response_ms: Date.now() - started,
+
+          server: {
+            online: server.online,
+            status: server.status,
+            players: livePlayerCount,
+            maxPlayers: server.maxPlayers,
+            version: server.version
+          },
+
+          players: {
+            count: players.length,
+            list: players
+          },
+
+          api: {
+            server_ok: serverResponse.ok,
+            players_ok: playersResponse.ok
+          }
+        });
+      } catch (error) {
         return json(
           {
             ok: false,
-            error:
-              e?.message ||
-              String(e)
+            source: "Shadow Forge Live API",
+            timestamp: new Date().toISOString(),
+            error: error instanceof Error ? error.message : String(error)
           },
           503
         );
       }
     }
 
-    return new Response(
-      "Shadow Forge API",
-      {
-        status: 200,
-        headers: corsHeaders({
-          "Content-Type":
-            "text/plain; charset=UTF-8"
-        })
+    if (url.pathname === "/api/server") {
+      try {
+        const result = await prisonerFetch(
+          env,
+          PATHS.server,
+          url.search.slice(1)
+        );
+
+        if (!result.ok) {
+          return json(
+            {
+              ok: false,
+              endpoint: result.endpoint,
+              status: result.status,
+              data: result.data
+            },
+            result.status
+          );
+        }
+
+        return json({
+          ok: true,
+          source: "Prisoner Bot Public API",
+          endpoint: result.endpoint,
+          server: normalizeServer(result.data)
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error)
+          },
+          503
+        );
       }
-    );
+    }
+
+    if (url.pathname === "/api/players") {
+      try {
+        const result = await prisonerFetch(
+          env,
+          PATHS.players,
+          url.search.slice(1)
+        );
+
+        if (!result.ok) {
+          return json(
+            {
+              ok: false,
+              endpoint: result.endpoint,
+              status: result.status,
+              data: result.data
+            },
+            result.status
+          );
+        }
+
+        const players = normalizePlayers(result.data);
+
+        return json({
+          ok: true,
+          source: "Prisoner Bot Public API",
+          endpoint: result.endpoint,
+          count: players.length,
+          players
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error)
+          },
+          503
+        );
+      }
+    }
+
+    if (url.pathname === "/api/leaderboard") {
+      const kind =
+        url.searchParams.get("type") === "playtime"
+          ? "playtime"
+          : "kills";
+
+      try {
+        const result = await prisonerFetch(
+          env,
+          PATHS[kind],
+          url.search.slice(1)
+        );
+
+        if (!result.ok) {
+          return json(
+            {
+              ok: false,
+              endpoint: result.endpoint,
+              status: result.status,
+              data: result.data
+            },
+            result.status
+          );
+        }
+
+        const leaderboard = normalizeLeaderboard(
+          result.data,
+          kind
+        );
+
+        return json({
+          ok: true,
+          source: "Prisoner Bot Public API",
+          type: kind,
+          endpoint: result.endpoint,
+          count: leaderboard.length,
+          leaderboard
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error)
+          },
+          503
+        );
+      }
+    }
+
+    return env.ASSETS.fetch(request);
   }
 };

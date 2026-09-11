@@ -1,69 +1,488 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shadow Forge · Live Hub</title>
-<meta name="description" content="Shadow Forge SCUM Live Hub">
-<link rel="stylesheet" href="/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Forge — SCUM Server</title>
+  <meta name="description" content="Shadow Forge SCUM Server — PvE/PvP, Events, 3x Loot, Welcome Pack & Discord.">
+  <style>
+    :root{
+      --bg:#07060a;
+      --panel:#110d16;
+      --panel2:#17101e;
+      --line:#3b244a;
+      --purple:#a95cff;
+      --purple2:#6f35a8;
+      --text:#f4eff8;
+      --muted:#aaa0b3;
+      --green:#62e6a3;
+      --red:#ff667e;
+      --shadow:0 18px 50px rgba(0,0,0,.45);
+    }
+
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 50% -10%,rgba(169,92,255,.20),transparent 35%),
+        radial-gradient(circle at 10% 30%,rgba(111,53,168,.12),transparent 28%),
+        linear-gradient(180deg,#08070b,#050407 70%,#09060d);
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      min-height:100vh;
+    }
+
+    body:before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.16;
+      background-image:
+        linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+      background-size:42px 42px;
+      mask-image:linear-gradient(to bottom,black,transparent);
+    }
+
+    .wrap{width:min(1180px,92%);margin:auto}
+
+    header{
+      padding:52px 0 24px;
+      text-align:center;
+    }
+
+    .eyebrow{
+      letter-spacing:.32em;
+      text-transform:uppercase;
+      color:var(--purple);
+      font-size:12px;
+      font-weight:800;
+    }
+
+    h1{
+      margin:10px 0 5px;
+      font-size:clamp(42px,8vw,86px);
+      line-height:.9;
+      letter-spacing:.04em;
+      text-shadow:0 0 30px rgba(169,92,255,.35);
+    }
+
+    .subtitle{
+      color:var(--muted);
+      font-size:14px;
+      letter-spacing:.15em;
+      text-transform:uppercase;
+    }
+
+    .live-panel{
+      margin:30px 0 22px;
+      padding:24px;
+      border:1px solid var(--line);
+      background:linear-gradient(145deg,rgba(25,15,34,.96),rgba(10,8,13,.96));
+      box-shadow:var(--shadow),0 0 50px rgba(111,53,168,.10);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .live-panel:after{
+      content:"";
+      position:absolute;
+      width:280px;height:280px;
+      right:-140px;top:-160px;
+      border-radius:50%;
+      background:rgba(169,92,255,.10);
+      filter:blur(2px);
+    }
+
+    .live-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:15px;
+      flex-wrap:wrap;
+    }
+
+    .status{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:900;
+      letter-spacing:.08em;
+    }
+
+    .dot{
+      width:12px;height:12px;border-radius:50%;
+      background:var(--red);
+      box-shadow:0 0 15px rgba(255,102,126,.6);
+    }
+
+    .dot.online{
+      background:var(--green);
+      box-shadow:0 0 15px rgba(98,230,163,.7);
+    }
+
+    .updated{
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:12px;
+      margin-top:20px;
+    }
+
+    .stat{
+      background:rgba(255,255,255,.025);
+      border:1px solid rgba(169,92,255,.16);
+      padding:20px;
+      min-height:105px;
+    }
+
+    .stat-label{
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      font-size:10px;
+      font-weight:800;
+    }
+
+    .stat-value{
+      font-size:30px;
+      font-weight:950;
+      margin-top:10px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:18px;
+      margin:18px 0 60px;
+    }
+
+    .card{
+      border:1px solid var(--line);
+      background:rgba(14,10,18,.90);
+      padding:22px;
+      box-shadow:var(--shadow);
+    }
+
+    .card h2{
+      margin:0 0 4px;
+      font-size:20px;
+      letter-spacing:.04em;
+    }
+
+    .card-sub{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:18px;
+    }
+
+    .player-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-height:80px;
+    }
+
+    .player{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:12px 14px;
+      background:rgba(169,92,255,.055);
+      border:1px solid rgba(169,92,255,.12);
+    }
+
+    .player-name{font-weight:750}
+    .player-rank{color:var(--purple);font-weight:900}
+
+    .empty{
+      color:var(--muted);
+      padding:18px 0;
+      font-size:13px;
+    }
+
+    .leaderboard{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns:40px 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:11px 12px;
+      border-bottom:1px solid rgba(255,255,255,.055);
+    }
+
+    .rank{color:var(--purple);font-weight:900}
+    .value{font-weight:900}
+
+    .footer{
+      border-top:1px solid rgba(255,255,255,.08);
+      padding:25px 0 40px;
+      color:var(--muted);
+      font-size:12px;
+      text-align:center;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      border:1px solid rgba(169,92,255,.25);
+      background:rgba(169,92,255,.07);
+      padding:8px 11px;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    @media(max-width:800px){
+      .stats{grid-template-columns:repeat(2,1fr)}
+      .grid{grid-template-columns:1fr}
+    }
+
+    @media(max-width:460px){
+      .stats{grid-template-columns:1fr}
+      .live-panel,.card{padding:16px}
+    }
+  </style>
 </head>
+
 <body>
-<header class="topbar">
-  <a class="brand" href="#home">⚒ SHADOW FORGE</a>
-  <nav><a href="#server">Server</a><a href="#players">Players</a><a href="#ranking">Ranking</a><a href="#events">Events</a></nav>
-</header>
+  <main class="wrap">
+    <header>
+      <div class="eyebrow">Play • Survive • Forge</div>
+      <h1>SHADOW FORGE</h1>
+      <div class="subtitle">SCUM SERVER · PvE / PvP · EVENTS · 3x LOOT</div>
+    </header>
 
-<main>
-<section id="home" class="hero">
-  <div class="hero-copy">
-    <p class="eyebrow">SHADOW FORGE · LIVE HUB</p>
-    <h1>THE FORGE<br><span>IS ALIVE.</span></h1>
-    <p>Die öffentliche Zentrale für unseren SCUM-Server – Live-Daten, Rankings, Events und später Bounties & Prisoner-System.</p>
-    <div class="actions"><a class="btn primary" href="#server">LIVE STATUS</a><a class="btn ghost" href="https://www.gs4u.net/de/s/436818" target="_blank" rel="noopener">GS4U</a></div>
-  </div>
-</section>
+    <section class="live-panel">
+      <div class="live-top">
+        <div class="status">
+          <span id="statusDot" class="dot"></span>
+          <span id="statusText">SERVER WIRD GELADEN</span>
+        </div>
+        <div class="updated">
+          LIVE · Update alle 30 Sekunden · <span id="updated">—</span>
+        </div>
+      </div>
 
-<section id="server" class="section">
-  <p class="eyebrow">LIVE CORE</p><h2>Server Status</h2>
-  <div class="dashboard">
-    <div class="status-card">
-      <div class="status"><i id="dot"></i><strong id="status">CHECKING</strong></div>
-      <h3>SHADOW FORGE</h3>
-      <p class="muted">SCUM · PvE/PvP · 3× Loot · GER/ENG</p>
-      <div class="metric"><span>Spieler</span><b id="playersCount">—</b></div>
-      <small id="serverMessage">API wird geprüft …</small>
-    </div>
-    <div class="mini-grid">
-      <div class="tile"><span>🎮</span><b>SCUM</b><small>Game</small></div>
-      <div class="tile"><span>💎</span><b>3×</b><small>Loot</small></div>
-      <div class="tile"><span>🌍</span><b>EU</b><small>Region</small></div>
-      <div class="tile"><span>🤖</span><b>API</b><small>Prisoner Bot</small></div>
-    </div>
-  </div>
-</section>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Spieler</div>
+          <div id="players" class="stat-value">—</div>
+        </div>
 
-<section id="players" class="section">
-  <p class="eyebrow">PLAYER DATA</p><h2>Spieler</h2>
-  <div id="playersPanel" class="panel"><div class="loading">Spielerdaten werden geladen …</div></div>
-</section>
+        <div class="stat">
+          <div class="stat-label">Slots</div>
+          <div id="slots" class="stat-value">—</div>
+        </div>
 
-<section id="ranking" class="section">
-  <p class="eyebrow">COMPETITION</p><h2>Leaderboard</h2>
-  <div class="rank-grid">
-    <div class="panel"><h3>⚔️ Top Killer</h3><div id="kills" class="list"><span class="loading">Wird geladen …</span></div></div>
-    <div class="panel"><h3>🎯 Playtime</h3><div id="playtime" class="list"><span class="loading">Wird geladen …</span></div></div>
-  </div>
-</section>
+        <div class="stat">
+          <div class="stat-label">API Latenz</div>
+          <div id="latency" class="stat-value">—</div>
+        </div>
 
-<section id="events" class="section">
-  <p class="eyebrow">COMING NEXT</p><h2>Shadow Forge Systems</h2>
-  <div class="cards">
-    <article><b>☠️ BOUNTY BOARD</b><span>Kopfgelder auf der Website</span></article>
-    <article><b>🏴 PRISONER SYSTEM</b><span>Gefängnis, Kopfgeld & Community-Lore</span></article>
-    <article><b>🎉 EVENTS</b><span>Eventkalender mit Rewards</span></article>
-  </div>
-</section>
-</main>
-<footer>⚒ SHADOW FORGE · SCUM · PvE/PvP · EVENTS</footer>
-<script src="/js/main.js"></script>
+        <div class="stat">
+          <div class="stat-label">Version</div>
+          <div id="version" class="stat-value">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>⚒️ SURVIVORS</h2>
+        <div class="card-sub">Spielerdaten aus der Prisoner-Bot Public API</div>
+        <div id="playerList" class="player-list">
+          <div class="empty">Lade Daten …</div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>☠️ TOP KILLS</h2>
+        <div class="card-sub">Shadow Forge Leaderboard</div>
+        <div id="kills" class="leaderboard">
+          <div class="empty">Lade Leaderboard …</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="card" style="margin-bottom:18px">
+      <h2>🕯️ SHADOW FORGE LIVE</h2>
+      <div class="card-sub">
+        Die Anzeige wird automatisch aktualisiert. Werte, die die Public API
+        nicht bereitstellt, bleiben bewusst als „—“ stehen.
+      </div>
+      <span class="pill">● Public API</span>
+      <span class="pill">↻ Auto Refresh</span>
+      <span class="pill">⚒️ Shadow Forge</span>
+    </section>
+
+    <footer class="footer">
+      SHADOW FORGE · SCUM SERVER<br>
+      [GER/ENG] · PvE/PvP · EVENTS · 3x LOOT · WELCOMEPACK · DISCORD
+    </footer>
+  </main>
+
+<script>
+  const REFRESH_MS = 30000;
+
+  const $ = (id) => document.getElementById(id);
+
+  function setStatus(online) {
+    $("statusDot").classList.toggle("online", online);
+    $("statusText").textContent = online
+      ? "SERVER ONLINE"
+      : "SERVER OFFLINE";
+  }
+
+  function formatValue(value, fallback = "—") {
+    return value === null || value === undefined || value === ""
+      ? fallback
+      : String(value);
+  }
+
+  function renderPlayers(data) {
+    const box = $("playerList");
+    const players = Array.isArray(data?.players?.list)
+      ? data.players.list
+      : [];
+
+    if (!players.length) {
+      box.innerHTML = `
+        <div class="empty">
+          Aktuell sind über die Public API keine Spieler-Einträge verfügbar.
+        </div>`;
+      return;
+    }
+
+    box.innerHTML = players.slice(0, 20).map((player, index) => `
+      <div class="player">
+        <div>
+          <div class="player-name">${escapeHtml(player.name || "Unknown Survivor")}</div>
+        </div>
+        <div class="player-rank">#${index + 1}</div>
+      </div>
+    `).join("");
+  }
+
+  function renderKills(data) {
+    const box = $("kills");
+    const rows = Array.isArray(data?.leaderboard)
+      ? data.leaderboard
+      : [];
+
+    if (!rows.length) {
+      box.innerHTML = `
+        <div class="empty">
+          Noch keine Leaderboard-Daten verfügbar.
+        </div>`;
+      return;
+    }
+
+    box.innerHTML = rows.slice(0, 10).map((row, index) => `
+      <div class="row">
+        <div class="rank">#${row.rank || index + 1}</div>
+        <div>${escapeHtml(row.name || "Unknown Survivor")}</div>
+        <div class="value">${escapeHtml(formatValue(row.value))}</div>
+      </div>
+    `).join("");
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  async function loadLive() {
+    const started = performance.now();
+
+    try {
+      const response = await fetch("/api/live", {
+        cache: "no-store",
+        headers: { "Accept": "application/json" }
+      });
+
+      const data = await response.json();
+
+      const measured = Math.round(performance.now() - started);
+      $("latency").textContent = `${data.response_ms ?? measured} ms`;
+
+      if (!data.ok) {
+        setStatus(false);
+        $("players").textContent = "—";
+        $("slots").textContent = "—";
+        $("version").textContent = "—";
+        $("updated").textContent = new Date().toLocaleTimeString("de-DE");
+        return;
+      }
+
+      setStatus(Boolean(data.server?.online));
+
+      const playerCount = data.server?.players;
+      const maxPlayers = data.server?.maxPlayers;
+
+      $("players").textContent =
+        playerCount === null || playerCount === undefined
+          ? "—"
+          : String(playerCount);
+
+      $("slots").textContent =
+        maxPlayers === null || maxPlayers === undefined
+          ? "—"
+          : String(maxPlayers);
+
+      $("version").textContent =
+        formatValue(data.server?.version);
+
+      $("updated").textContent =
+        new Date(data.timestamp || Date.now())
+          .toLocaleTimeString("de-DE");
+
+      renderPlayers(data);
+
+      loadKills();
+    } catch (error) {
+      console.error(error);
+      setStatus(false);
+      $("latency").textContent = "—";
+      $("updated").textContent = "Verbindung fehlgeschlagen";
+    }
+  }
+
+  async function loadKills() {
+    try {
+      const response = await fetch(
+        "/api/leaderboard?type=kills",
+        { cache: "no-store" }
+      );
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      renderKills(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  loadLive();
+  setInterval(loadLive, REFRESH_MS);
+</script>
 </body>
 </html>
