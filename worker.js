@@ -177,50 +177,82 @@ async function gameMonitoringFetch() {
 }
 
 
-const PRISONER_COMMAND_DEFAULT_PATH = "/command";
+const PRISONER_COMMAND_DEFAULT_PATH = "/rcon/commands";
 const PRISONER_LIST_COMMAND = "#ListPlayers";
 
 async function prisonerCommandFetch(env, command = PRISONER_LIST_COMMAND) {
   if (!env.PRISONER_API_TOKEN) {
-    return { ok: false, configured: false, status: 503, path: null, responseMs: 0, data: null, text: "", error: "Prisoner Bot not configured" };
+    return { ok: false, configured: false, status: 503, path: null, field: null, method: "GET", responseMs: 0, data: null, text: "", error: "Prisoner Bot not configured" };
   }
 
-  const configuredPath = String(env.PRISONER_COMMAND_PATH || "").trim();
-  const paths = configuredPath
-    ? [configuredPath]
-    : [PRISONER_COMMAND_DEFAULT_PATH, "/commands", "/server/command", "/rcon/command", "/rcon/commands"];
-
-  const fields = [env.PRISONER_COMMAND_FIELD || "command", "command", "cmd"];
+  // Prisoner Bot's /rcon/commands route is GET-only. The previous POST probe
+  // reached the correct route but returned HTTP 405 and explicitly reported
+  // that GET/HEAD are supported. The command is therefore sent as the `cmd`
+  // query parameter.
+  const configuredPath = String(env.PRISONER_COMMAND_PATH || PRISONER_COMMAND_DEFAULT_PATH).trim();
+  const paths = [...new Set([configuredPath, PRISONER_COMMAND_DEFAULT_PATH])];
+  const fields = [...new Set([env.PRISONER_COMMAND_FIELD || "cmd", "cmd", "command"])]
+    .filter(Boolean);
   const started = Date.now();
   let last = null;
 
-  for (const path of [...new Set(paths)]) {
-    for (const field of [...new Set(fields)]) {
+  for (const path of paths) {
+    for (const field of fields) {
       try {
-        const response = await fetch(new URL(path, PRISONER_BASE), {
-          method: "POST",
+        const endpoint = new URL(path, PRISONER_BASE);
+        endpoint.searchParams.set(field, command);
+        const response = await fetch(endpoint.toString(), {
+          method: "GET",
           headers: {
             Accept: "application/json, text/plain, */*",
-            "Content-Type": "application/json",
             "PRISONER-BOT-TOKEN": env.PRISONER_API_TOKEN
           },
-          body: JSON.stringify({ [field]: command })
+          cf: { cacheTtl: 0, cacheEverything: false }
         });
         const text = await response.text();
         let data = null;
         try { data = JSON.parse(text); } catch {}
-        last = { ok: response.ok, status: response.status, path, field, responseMs: Date.now() - started, data, text, error: response.ok ? null : `HTTP ${response.status}` };
+        last = {
+          ok: response.ok,
+          status: response.status,
+          path,
+          field,
+          method: "GET",
+          responseMs: Date.now() - started,
+          data,
+          text,
+          error: response.ok ? null : `HTTP ${response.status}`
+        };
         if (response.ok) return last;
-        // 404 means the route is probably wrong; 400/422 can mean the route exists but the
-        // payload shape is wrong, so try the next field. 401/403 should stop immediately.
         if (response.status === 401 || response.status === 403) return last;
       } catch (error) {
-        last = { ok: false, status: 502, path, field, responseMs: Date.now() - started, data: null, text: "", error: error instanceof Error ? error.message : String(error) };
+        last = {
+          ok: false,
+          status: 502,
+          path,
+          field,
+          method: "GET",
+          responseMs: Date.now() - started,
+          data: null,
+          text: "",
+          error: error instanceof Error ? error.message : String(error)
+        };
       }
     }
   }
 
-  return last || { ok: false, configured: true, status: 502, path: null, responseMs: Date.now() - started, data: null, text: "", error: "No command endpoint response" };
+  return last || {
+    ok: false,
+    configured: true,
+    status: 502,
+    path: null,
+    field: null,
+    method: "GET",
+    responseMs: Date.now() - started,
+    data: null,
+    text: "",
+    error: "No command endpoint response"
+  };
 }
 
 function parseCommandPlayers(result) {
