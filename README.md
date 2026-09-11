@@ -1,125 +1,30 @@
-# SHADOW FORGE — Website V2
+# Shadow Forge Website V2.1
 
-A full-width Shadow Forge SCUM server portal using:
+Live Shadow Forge dashboard using three data sources:
 
-- Cloudflare Worker for the public API
-- Prisoner Bot Public API for server/player database + leaderboards
-- Optional SCUM A2S/Source Query Bridge for live player count, max slots, server name, map, version and ping
-- Responsive Shadow Forge UI
+1. **SCUM A2S Query Bridge** — preferred source for direct server data and player names.
+2. **GS4u Live Monitor** — live fallback for online status, player count, max slots, server name/map/version when the direct UDP query is unavailable.
+3. **Prisoner Bot Public API** — database/leaderboards and fallback server/player data.
 
-## Server connection
-
+## Server
 - Host: `176.57.174.127`
-- Game / Server Port: `28202`
-- Query Port: `28215`
+- Game port: `28202`
+- Query port: `28215`
+- GS4u server ID: `436818`
 
-## 1. Cloudflare Worker
+## Cloudflare Worker variables
+Set these under Worker Variables/Secrets:
 
-Upload `worker.js` to the existing `WitchToken/shadow-forge-website` repository.
+- `PRISONER_API_TOKEN` — secret
+- `SCUM_QUERY_BRIDGE_URL` — optional HTTPS URL to the Node query bridge
+- `SCUM_QUERY_BRIDGE_KEY` — optional secret shared with the bridge
 
-Keep the existing build command:
+The website never receives the Prisoner Bot token.
 
-```text
-npx wrangler deploy
-```
+## Query bridge
+Run `query-bridge/server.js` on a machine that can send UDP traffic to the SCUM server. The bridge is locked to the Shadow Forge target and is not an open UDP proxy.
 
-The Worker needs this existing secret:
+## Live fallback
+The Worker fetches the public GS4u monitoring page for server ID `436818`. GS4u currently exposes Shadow Forge as online with a live player count and max-slot value on its server page. The page is refreshed by GS4u; the Worker caches it only briefly.
 
-```text
-PRISONER_API_TOKEN
-```
-
-Add these Worker secrets/variables for the query bridge:
-
-```text
-SCUM_QUERY_BRIDGE_URL=https://YOUR-BRIDGE-DOMAIN/query
-SCUM_QUERY_BRIDGE_KEY=YOUR_LONG_RANDOM_SECRET
-```
-
-`SCUM_QUERY_BRIDGE_URL` can be left unset while the bridge is not running. The rest of the site still works from Prisoner Bot.
-
-## 2. Query Bridge
-
-Cloudflare Workers do not directly send arbitrary UDP queries. The bridge runs on a machine that can send UDP to the SCUM query port.
-
-This bridge implements the SCUM/Source A2S_INFO exchange directly and does not depend on GameDig.
-
-Requirements:
-
-- Node.js 18+
-- outbound UDP access to `176.57.174.127:28215`
-- an HTTP/HTTPS endpoint reachable by the Cloudflare Worker
-
-Install and run:
-
-```bash
-cd query-bridge
-npm install
-cp .env.example .env
-```
-
-Set a strong `BRIDGE_KEY`, then:
-
-```bash
-node server.js
-```
-
-Health:
-
-```text
-GET /health
-```
-
-Query:
-
-```text
-GET /query?host=176.57.174.127&port=28215
-```
-
-The bridge intentionally refuses targets other than the configured Shadow Forge server so it cannot be abused as a generic UDP proxy.
-
-## 3. Recommended deployment
-
-Best case: run the bridge on the same hosting environment as the SCUM server if the host allows Node.js applications and outbound UDP.
-
-If the SCUM host cannot run Node.js, use a small VPS or another always-on machine. Cloudflare Tunnel can be used to expose the bridge over HTTPS without opening an inbound port on the machine.
-
-## 4. Public Worker endpoints
-
-```text
-/api/live
-/api/query
-/api/server
-/api/players
-/api/leaderboard?type=kills
-/api/leaderboard?type=playtime
-/api/health
-```
-
-The frontend only needs `/api/live` plus the leaderboard endpoints.
-
-## 5. Data-source philosophy
-
-The site deliberately does not treat Prisoner Bot's `/players` endpoint as a live RCON player list. It is used as player/database data.
-
-The optional SCUM Query Bridge is the authoritative source for live:
-
-- online/offline
-- current players
-- max slots
-- server name
-- map
-- version
-- query ping
-
-This keeps the site honest and gives us a second independent source.
-
-## 6. Security
-
-Never put `PRISONER_API_TOKEN` in `index.html`.
-
-Never put the bridge secret in `index.html`.
-
-Only the Cloudflare Worker should know the bridge key.
-
-The bridge is not an open proxy: it accepts only the configured Shadow Forge host/port.
+This means the dashboard can show real live player/slot data even while the direct UDP bridge is offline. Player names still require the direct SCUM A2S player query or Prisoner Bot data.

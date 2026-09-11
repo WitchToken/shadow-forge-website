@@ -21,7 +21,7 @@
 
 <main id="top">
 <section class="hero"><div class="container hero-grid"><div><div class="eyebrow">✦ Play · Survive · Forge</div><h1>SHADOW <span><strong>FORGE</strong></span></h1><p class="hero-copy">Ein düsterer SCUM-Server für Survivors, Builder, PvP-Fans und Eventjäger. PvE/PvP, Events, 3x Loot, Welcome Pack und eine Community, die ihren eigenen Weg schmiedet.</p><div class="chips"><span class="chip">PvE / PvP</span><span class="chip">Events</span><span class="chip">3x Loot</span><span class="chip">Welcome Pack</span><span class="chip">GER / ENG</span></div><div class="hero-actions"><a class="btn primary" href="#connect">Discord öffnen</a><a class="btn ghost" href="#live">Serverstatus ansehen</a></div></div>
-<div class="hero-panel" id="live"><div class="panel-head"><div class="status"><span id="statusDot" class="dot"></span><span id="statusText">STATUS WIRD GELADEN</span></div><div class="live-tag">Live Monitor</div></div><div class="server-name" id="serverName">SHADOW FORGE</div><div class="server-sub" id="serverSubtitle">[GER/ENG] · PvE/PvP · EVENTS · 3x LOOT</div><div class="big-players"><div class="num" id="heroPlayers">—</div><div class="max">/ <span id="heroSlots">—</span> Survivors</div></div><div class="progress"><span id="playerBar"></span></div><div class="micro-grid"><div class="micro"><small>Ping</small><b id="heroPing">—</b></div><div class="micro"><small>Version</small><b id="heroVersion">—</b></div><div class="micro"><small>Map</small><b id="heroMap">—</b></div><div class="micro"><small>Query</small><b id="heroQuery">28215</b></div></div><div class="source-line" style="margin-top:17px"><span id="querySourceDot" class="source-dot"></span><span id="sourceText">SCUM Query + Prisoner Bot</span><span>·</span><span>Update <b id="lastUpdate">—</b></span></div></div></div></section>
+<div class="hero-panel" id="live"><div class="panel-head"><div class="status"><span id="statusDot" class="dot"></span><span id="statusText">STATUS WIRD GELADEN</span></div><div class="live-tag">Live Monitor</div></div><div class="server-name" id="serverName">SHADOW FORGE</div><div class="server-sub" id="serverSubtitle">[GER/ENG] · PvE/PvP · EVENTS · 3x LOOT</div><div class="big-players"><div class="num" id="heroPlayers">—</div><div class="max">/ <span id="heroSlots">—</span> Survivors</div></div><div class="progress"><span id="playerBar"></span></div><div class="micro-grid"><div class="micro"><small>Ping</small><b id="heroPing">—</b></div><div class="micro"><small>Version</small><b id="heroVersion">—</b></div><div class="micro"><small>Map</small><b id="heroMap">—</b></div><div class="micro"><small>Query</small><b id="heroQuery">28215</b></div></div><div class="source-line" style="margin-top:17px"><span id="querySourceDot" class="source-dot"></span><span id="sourceText">SCUM Query · GS4u · Prisoner Bot</span><span>·</span><span>Update <b id="lastUpdate">—</b></span></div></div></div></section>
 
 <section class="section"><div class="container"><div class="stats-grid"><div class="stat"><small>Online Survivors</small><strong id="statPlayers">—</strong></div><div class="stat"><small>Server Slots</small><strong id="statSlots">—</strong></div><div class="stat"><small>Query Ping</small><strong id="statPing">—</strong></div><div class="stat"><small>API Response</small><strong id="statApi">—</strong></div></div></div></section>
 
@@ -56,10 +56,10 @@ function showToast(text){
 }
 function renderPlayers(data){
   const list = Array.isArray(data?.server?.playerList) ? data.server.playerList : [];
-  $('playerSource').textContent = `Quelle: ${fmt(data?.server?.playerListSource)}`;
+  $('playerSource').textContent = `Quelle: ${fmt(data?.server?.playerListSource)} · Live Count: ${fmt(data?.server?.liveSource)}`;
   $('playerSourceDot').classList.toggle('off', !list.length && !(data?.server?.players > 0));
   if(!list.length){
-    $('playerList').innerHTML = `<div class="empty">Aktuell sind keine Namen über die verwendete Datenquelle verfügbar. Der Live-Spielercounter kann trotzdem korrekt sein.</div>`;
+    $('playerList').innerHTML = `<div class="empty">Aktuell sind keine Spielernamen über die verfügbare Datenquelle verfügbar. Der Live-Spielercounter stammt trotzdem aus dem Live-Monitor.</div>`;
     return;
   }
   $('playerList').innerHTML = list.slice(0,40).map((p,i)=>{
@@ -107,7 +107,7 @@ async function loadLive(){
     $('lastUpdate').textContent = new Date(data.timestamp || Date.now()).toLocaleTimeString('de-DE');
     const queryOk = Boolean(data.sources?.scumQuery?.ok);
     $('querySourceDot').classList.toggle('off', !queryOk);
-    $('sourceText').textContent = queryOk ? 'SCUM Query + Prisoner Bot' : 'Prisoner Bot · Query Bridge offline';
+    $('sourceText').textContent = queryOk ? 'SCUM Query · GS4u · Prisoner Bot' : 'GS4u Live Monitor · Query Bridge offline';
     renderPlayers(data);
   }catch(error){
     console.error(error);
