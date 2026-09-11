@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "shadow-forge",
-  "main": "./worker.js",
+  "main": "./leaderboard-worker.js",
   "compatibility_date": "2026-09-11",
 
   "observability": {
