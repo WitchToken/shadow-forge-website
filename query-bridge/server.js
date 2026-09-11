@@ -6,6 +6,7 @@ const HOST = process.env.SCUM_HOST || '176.57.174.127';
 const QUERY_PORT = Number(process.env.SCUM_QUERY_PORT || 28215);
 const BRIDGE_PORT = Number(process.env.PORT || 8787);
 const BRIDGE_KEY = process.env.BRIDGE_KEY || '';
+const REQUIRE_KEY = process.env.REQUIRE_KEY !== 'false';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const TIMEOUT_MS = Number(process.env.QUERY_TIMEOUT_MS || 2500);
 
@@ -273,7 +274,8 @@ function sendJson(res, status, body) {
 }
 
 function authorized(req) {
-  if (!BRIDGE_KEY) return true;
+  if (!REQUIRE_KEY) return true;
+  if (!BRIDGE_KEY) return false;
   return req.headers['x-shadow-forge-key'] === BRIDGE_KEY;
 }
 
@@ -316,7 +318,9 @@ const server = http.createServer(async (req, res) => {
   const started = Date.now();
 
   try {
+    const infoStarted = Date.now();
     const info = await queryInfo(HOST, QUERY_PORT);
+    const queryPing = Date.now() - infoStarted;
     let players = [];
     try { players = await queryPlayers(HOST, QUERY_PORT); } catch {}
     return sendJson(res, 200, {
@@ -332,7 +336,7 @@ const server = http.createServer(async (req, res) => {
         players: info.players,
         maxPlayers: info.maxPlayers,
         bots: info.bots,
-        ping: Date.now() - started
+        ping: queryPing
       },
       players
     });
