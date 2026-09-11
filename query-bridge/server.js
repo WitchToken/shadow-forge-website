@@ -293,8 +293,6 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, {
       ok: true,
       service: 'shadow-forge-scum-query-bridge',
-      host: HOST,
-      queryPort: QUERY_PORT,
       timestamp: new Date().toISOString()
     });
   }
@@ -334,13 +332,7 @@ const server = http.createServer(async (req, res) => {
         players: info.players,
         maxPlayers: info.maxPlayers,
         bots: info.bots,
-        ping: Date.now() - started,
-        queryPort: QUERY_PORT,
-        gamePort: Number(process.env.SCUM_GAME_PORT || 28202),
-        appId: info.appId,
-        game: info.game,
-        keywords: info.keywords,
-        raw: info
+        ping: Date.now() - started
       },
       players
     });
@@ -357,9 +349,7 @@ const server = http.createServer(async (req, res) => {
         version: null,
         players: null,
         maxPlayers: null,
-        ping: null,
-        queryPort: QUERY_PORT,
-        gamePort: Number(process.env.SCUM_GAME_PORT || 28202)
+        ping: null
       },
       players: [],
       error: error instanceof Error ? error.message : String(error)

@@ -1,14 +1,15 @@
 const PRISONER_BASE = "https://scum.theprisonerbot.com/api";
 const GS4U_URL = "https://www.gs4u.net/de/s/436818";
 
-const SCUM_SERVER = {
+// Publicly safe server settings. Sensitive query/infra values are read from
+// Cloudflare Worker environment variables and are NEVER returned by the API.
+const PUBLIC_SERVER = {
   name: "Shadow Forge",
-  host: "176.57.174.127",
-  gamePort: 28202,
-  queryPort: 28215,
   connectAddress: "176.57.174.127:28202",
-  gs4uId: "436818"
+  maxPlayersFallback: 60
 };
+
+
 
 const PATHS = {
   server: "/server",
@@ -103,8 +104,7 @@ function normalizeServer(data) {
     maxPlayers,
     status: status ?? null,
     version: version ?? null,
-    map: map ?? null,
-    raw: data
+    map: map ?? null
   };
 }
 
@@ -195,7 +195,7 @@ async function gs4uFetch() {
     const address = firstMatch(text, [/IP:Port\s+([0-9.]+:\d+)/i]);
     const playersMatch = text.match(/Spieler:\s*(\d+)\s*von\s*(\d+)/i);
     const name = firstMatch(text, [/#\s*([^\n]{3,100})\s*\d{1,3}\.\d{1,3}\./]);
-    const map = firstMatch(text, [/Karte:\s*([^·]{1,80})/i]);
+    const map = firstMatch(text, [/Karte:\s*([^·]{1,80}?)(?=\s+Beschreibung|$)/i]);
     const version = firstMatch(text, [/Version:\s*([^·]{1,80})/i]);
     const updated = firstMatch(text, [/Informationen aktualisiert:\s*([^·]{1,100})/i]);
 
@@ -210,16 +210,15 @@ async function gs4uFetch() {
       source: "GS4u Live Monitor",
       server: {
         online,
-        name: name || SCUM_SERVER.name,
+        name: name || PUBLIC_SERVER.name,
         players,
         maxPlayers,
-        map: map && map !== "-" ? map.trim() : null,
-        version: version && version !== "-" ? version.trim() : null,
+        map: map && map.trim() !== "-" && !/^beschreibung\b/i.test(map.trim()) ? map.trim() : null,
+        version: version && version.trim() !== "-" ? version.trim() : null,
         ping: null,
-        gamePort: SCUM_SERVER.gamePort,
-        queryPort: SCUM_SERVER.queryPort,
-        address: address || SCUM_SERVER.connectAddress,
-        updated
+        address: PUBLIC_SERVER.connectAddress,
+        updated: new Date().toISOString(),
+        monitorUpdatedText: updated
       },
       players: [],
       error: null
@@ -245,8 +244,7 @@ async function queryBridgeFetch(env) {
 
   const started = Date.now();
   const url = new URL(env.SCUM_QUERY_BRIDGE_URL);
-  url.searchParams.set("host", SCUM_SERVER.host);
-  url.searchParams.set("port", String(SCUM_SERVER.queryPort));
+
   const headers = { "Accept": "application/json" };
   if (env.SCUM_QUERY_BRIDGE_KEY) headers["X-Shadow-Forge-Key"] = env.SCUM_QUERY_BRIDGE_KEY;
 
@@ -297,6 +295,20 @@ async function cachedJson(requestKey, loader, ttl = CACHE_TTL_MS) {
   return cacheResponse;
 }
 
+function publicServerView(server) {
+  if (!server) return null;
+  return {
+    online: server.online !== false,
+    name: server.name || PUBLIC_SERVER.name,
+    players: typeof server.players === "number" ? server.players : null,
+    maxPlayers: PUBLIC_SERVER.maxPlayersFallback,
+    version: server.version ?? null,
+    map: server.map ?? null,
+    ping: typeof server.ping === "number" ? server.ping : null,
+    address: PUBLIC_SERVER.connectAddress
+  };
+}
+
 function mergeLive(queryResult, gs4uResult, prisonerServerResult, prisonerPlayersResult) {
   const queryServer = queryResult?.server ?? null;
   const gs4uServer = gs4uResult?.server ?? null;
@@ -318,7 +330,7 @@ function mergeLive(queryResult, gs4uResult, prisonerServerResult, prisonerPlayer
   const maxPlayers = queryServer?.maxPlayers ?? gs4uServer?.maxPlayers ?? prisonerServer?.maxPlayers ?? null;
   const version = queryServer?.version || gs4uServer?.version || prisonerServer?.version || null;
   const map = queryServer?.map || gs4uServer?.map || prisonerServer?.map || null;
-  const hostname = queryServer?.name || gs4uServer?.name || SCUM_SERVER.name;
+  const hostname = queryServer?.name || gs4uServer?.name || PUBLIC_SERVER.name;
   const ping = queryServer?.ping ?? null;
 
   let liveSource = "Prisoner Bot";
@@ -329,17 +341,19 @@ function mergeLive(queryResult, gs4uResult, prisonerServerResult, prisonerPlayer
     online,
     status: online ? "online" : "offline",
     players: currentPlayers,
-    maxPlayers,
+    maxPlayers: PUBLIC_SERVER.maxPlayersFallback,
     version,
     map,
     hostname,
     ping,
-    queryPort: SCUM_SERVER.queryPort,
-    gamePort: SCUM_SERVER.gamePort,
-    playerList: players,
+    playerList: players.map((player, index) => ({
+      id: index + 1,
+      name: player?.name || "Unknown Survivor",
+      ping: player?.ping ?? null
+    })),
     playerListSource: queryResult?.ok && queryPlayers.length ? "SCUM Query" : (databasePlayers.length ? "Prisoner Bot Public API" : "Nicht verfügbar"),
     liveSource,
-    address: SCUM_SERVER.connectAddress
+    address: PUBLIC_SERVER.connectAddress
   };
 }
 
@@ -351,13 +365,17 @@ export default {
     if (url.pathname === "/api/health") {
       return json({
         ok: true,
-        service: "shadow-forge-api-v2.1",
+        service: "shadow-forge-api-v2.3",
         timestamp: new Date().toISOString(),
-        server: SCUM_SERVER,
-        prisonerApiConfigured: Boolean(env.PRISONER_API_TOKEN),
-        queryBridgeConfigured: Boolean(env.SCUM_QUERY_BRIDGE_URL),
-        liveFallback: "GS4u server monitor",
-        endpoints: ["/api/live", "/api/query", "/api/gs4u", "/api/server", "/api/players", "/api/leaderboard?type=kills", "/api/leaderboard?type=playtime"]
+        publicServer: {
+          name: PUBLIC_SERVER.name,
+          maxPlayersFallback: PUBLIC_SERVER.maxPlayersFallback
+        },
+        integrations: {
+          prisonerBot: Boolean(env.PRISONER_API_TOKEN),
+          liveQuery: Boolean(env.SCUM_QUERY_BRIDGE_URL),
+          gs4uFallback: true
+        }
       });
     }
 
@@ -366,9 +384,17 @@ export default {
         const result = await queryBridgeFetch(env);
         return {
           ok: result.ok,
-          source: "Shadow Forge SCUM Query Bridge",
-          serverConfig: SCUM_SERVER,
-          result
+          source: "Shadow Forge Live Query",
+          server: result.server ? {
+            online: result.server.online === true,
+            players: result.server.players ?? null,
+            maxPlayers: result.server.maxPlayers ?? PUBLIC_SERVER.maxPlayersFallback,
+            version: result.server.version ?? null,
+            map: result.server.map ?? null,
+            name: result.server.name ?? PUBLIC_SERVER.name,
+            ping: result.server.ping ?? null
+          } : null,
+          players: (result.players || []).map((player, index) => ({ id: index + 1, name: player?.name || "Unknown Survivor", ping: player?.ping ?? null }))
         };
       }, 5_000);
     }
@@ -376,7 +402,18 @@ export default {
     if (url.pathname === "/api/gs4u") {
       return cachedJson("gs4u", async () => {
         const result = await gs4uFetch();
-        return { ok: result.ok, source: result.source, serverConfig: SCUM_SERVER, ...result };
+        return {
+          ok: result.ok,
+          source: result.source,
+          server: result.server ? {
+            online: result.server.online,
+            name: result.server.name,
+            players: result.server.players,
+            maxPlayers: result.server.maxPlayers ?? PUBLIC_SERVER.maxPlayersFallback,
+            map: result.server.map,
+            version: result.server.version
+          } : null
+        };
       }, 10_000);
     }
 
@@ -397,12 +434,11 @@ export default {
           responseMs: Date.now() - started,
           server: live,
           sources: {
-            scumQuery: queryResult,
-            gs4u: gs4uResult,
-            prisonerServer: { ok: prisonerServerResult.ok, status: prisonerServerResult.status, responseMs: prisonerServerResult.responseMs },
-            prisonerPlayers: { ok: prisonerPlayersResult.ok, status: prisonerPlayersResult.status, responseMs: prisonerPlayersResult.responseMs }
-          },
-          connection: SCUM_SERVER
+            scumQuery: { ok: queryResult.ok, responseMs: queryResult.responseMs },
+            gs4u: { ok: gs4uResult.ok, responseMs: gs4uResult.responseMs },
+            prisonerServer: { ok: prisonerServerResult.ok, responseMs: prisonerServerResult.responseMs },
+            prisonerPlayers: { ok: prisonerPlayersResult.ok, responseMs: prisonerPlayersResult.responseMs }
+          }
         };
       });
     }
@@ -410,9 +446,9 @@ export default {
     if (url.pathname === "/api/server") {
       try {
         const [gs4u, prisoner] = await Promise.all([gs4uFetch(), prisonerFetch(env, PATHS.server, url.search.slice(1))]);
-        if (gs4u.ok) return json({ ok: true, source: gs4u.source, server: gs4u.server, fallback: prisoner.ok ? normalizeServer(prisoner.data) : null });
+        if (gs4u.ok) return json({ ok: true, source: gs4u.source, server: publicServerView(gs4u.server), fallback: prisoner.ok ? publicServerView(normalizeServer(prisoner.data)) : null });
         if (!prisoner.ok) return json({ ok: false, error: "No live server source available" }, 503);
-        return json({ ok: true, source: "Prisoner Bot Public API", server: normalizeServer(prisoner.data) });
+        return json({ ok: true, source: "Prisoner Bot Public API", server: publicServerView(normalizeServer(prisoner.data)) });
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 503);
       }
