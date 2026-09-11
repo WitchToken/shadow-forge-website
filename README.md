@@ -1,27 +1,33 @@
-# Shadow Forge V3.2 – Multi-Source Live Count
+# Shadow Forge V3.4 — Prisoner Bot RCON Command Live Players
 
-V3.2 keeps GAMEMONITORING as the primary live source but reconciles the displayed online-player count across all healthy sources.
+V3.4 adds a read-only live-player diagnostic using the Prisoner Bot Public API command bridge.
 
-## Live count
-- GAMEMONITORING player-list length when available
-- GAMEMONITORING server count
-- GS4u live monitor count
-- Prisoner Bot server count
+## What changed
+- Prisoner Bot RCON command is now the **primary live-player source**.
+- The Worker sends the SCUM command `#ListPlayers` through the Prisoner Bot Public API.
+- If the command response contains structured player data, it is parsed directly.
+- If the response is plain text, the Worker conservatively extracts rows containing a 17-digit Steam64 ID.
+- Existing Prisoner Bot `/server` and `/players` endpoints remain available.
+- GAMEMONITORING and GS4u remain fallbacks.
+- The public server capacity stays fixed at **60 slots**.
+- The public map stays **Island Map**.
 
-The displayed count uses the highest currently reported healthy live count. This prevents a stale GAMEMONITORING `numplayers` value (for example 2) from hiding a higher live count from another source.
+## Required Cloudflare Secret
+`PRISONER_API_TOKEN`
 
-The API also returns `countSources` for diagnostics.
+Do not put the token in the repository or browser code.
 
-## Public server
-- Shadow Forge
-- Connect: `176.57.174.127:28202`
-- Public slots: **60**
-- Map: **Island Map**
-- GAMEMONITORING server ID: `13954416`
+## Optional Worker variables
+- `PRISONER_COMMAND_PATH` — defaults to `/command`
+- `PRISONER_COMMAND_FIELD` — defaults to `command`
 
-`Monitor Ping` is HTTPS response time to GAMEMONITORING, not raw UDP/A2S ping.
+The command sent is intentionally read-only: `#ListPlayers`.
 
-## Deploy
-```bash
-npx wrangler deploy
-```
+## Diagnostic endpoint
+After deploy, open:
+`/api/prisoner-command-test`
+
+It returns the command endpoint path, HTTP status, parsed players and the raw Prisoner Bot response. No token is returned.
+
+## Why #ListPlayers
+SCUM's `#ListPlayers` command reports connected players. Prisoner Bot's current RCON/API release notes confirm that its command endpoint works with RCON and requires at least one player online. Prisoner Bot RCON v6.17.5 also fixed empty/incomplete player lists after the recent SCUM update.

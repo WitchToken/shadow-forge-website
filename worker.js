@@ -176,6 +176,78 @@ async function gameMonitoringFetch() {
   };
 }
 
+
+const PRISONER_COMMAND_DEFAULT_PATH = "/command";
+const PRISONER_LIST_COMMAND = "#ListPlayers";
+
+async function prisonerCommandFetch(env, command = PRISONER_LIST_COMMAND) {
+  if (!env.PRISONER_API_TOKEN) {
+    return { ok: false, configured: false, status: 503, path: null, responseMs: 0, data: null, text: "", error: "Prisoner Bot not configured" };
+  }
+
+  const configuredPath = String(env.PRISONER_COMMAND_PATH || "").trim();
+  const paths = configuredPath
+    ? [configuredPath]
+    : [PRISONER_COMMAND_DEFAULT_PATH, "/commands", "/server/command", "/rcon/command", "/rcon/commands"];
+
+  const fields = [env.PRISONER_COMMAND_FIELD || "command", "command", "cmd"];
+  const started = Date.now();
+  let last = null;
+
+  for (const path of [...new Set(paths)]) {
+    for (const field of [...new Set(fields)]) {
+      try {
+        const response = await fetch(new URL(path, PRISONER_BASE), {
+          method: "POST",
+          headers: {
+            Accept: "application/json, text/plain, */*",
+            "Content-Type": "application/json",
+            "PRISONER-BOT-TOKEN": env.PRISONER_API_TOKEN
+          },
+          body: JSON.stringify({ [field]: command })
+        });
+        const text = await response.text();
+        let data = null;
+        try { data = JSON.parse(text); } catch {}
+        last = { ok: response.ok, status: response.status, path, field, responseMs: Date.now() - started, data, text, error: response.ok ? null : `HTTP ${response.status}` };
+        if (response.ok) return last;
+        // 404 means the route is probably wrong; 400/422 can mean the route exists but the
+        // payload shape is wrong, so try the next field. 401/403 should stop immediately.
+        if (response.status === 401 || response.status === 403) return last;
+      } catch (error) {
+        last = { ok: false, status: 502, path, field, responseMs: Date.now() - started, data: null, text: "", error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+  }
+
+  return last || { ok: false, configured: true, status: 502, path: null, responseMs: Date.now() - started, data: null, text: "", error: "No command endpoint response" };
+}
+
+function parseCommandPlayers(result) {
+  if (!result) return [];
+  const candidates = [result.data, result.data?.response, result.data?.result, result.data?.data, result.data?.players, result.data?.onlinePlayers];
+  for (const candidate of candidates) {
+    const arr = findArray(candidate, ["players", "onlinePlayers", "online_players", "items", "entries", "results", "data", "records", "rows"]);
+    if (arr?.length) return normalizePlayers({ players: arr });
+  }
+
+  const text = cleanText(result.text || (typeof result.data === "string" ? result.data : ""));
+  if (!text) return [];
+
+  // Common SCUM/RCON ListPlayers output contains a player row with a Steam64 ID and a name.
+  // We intentionally keep this conservative: only lines with a 17-digit SteamID are accepted.
+  const lines = text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const players = [];
+  for (const line of lines) {
+    const steam = line.match(/\b(7656119\d{10})\b/);
+    if (!steam) continue;
+    let name = line.replace(steam[0], "").replace(/^[-*|:#\s\d.]+/, "").replace(/[|]+/g, " ").trim();
+    name = name.replace(/^(Steam(Name)?|Character(Name)?|Player(Name)?)\s*[:=]\s*/i, "").trim();
+    if (name && !players.some(p => p.id === steam[1])) players.push({ id: steam[1], name, ping: null });
+  }
+  return players;
+}
+
 async function prisonerFetch(env, path) {
   if (!env.PRISONER_API_TOKEN) return { ok: false, status: 503, responseMs: 0, data: null, error: "Prisoner Bot not configured" };
   const started = Date.now();
@@ -267,9 +339,10 @@ function extractOnlinePlayers(data) {
   });
 }
 
-function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
+function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, prisonerCommand, kills, playtime) {
   const pServer = prisonerServer?.ok ? normalizeServer(prisonerServer.data) : null;
   const pPlayers = prisonerPlayers?.ok ? extractOnlinePlayers(prisonerPlayers.data) : [];
+  const commandPlayers = prisonerCommand?.ok ? parseCommandPlayers(prisonerCommand) : [];
   const gmServer = gm?.ok ? gm.server : null;
   const gmPlayers = gm?.players ?? [];
   const gServer = gs4u?.ok ? gs4u.server : null;
@@ -278,6 +351,7 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
   // actual SCUM server through its monitoring/RCON stack. GAMEMONITORING and GS4u remain
   // independent fallbacks and sanity checks.
   const countCandidates = [
+    { source: "Prisoner Bot RCON Command", value: commandPlayers.length || null, priority: 0 },
     { source: "Prisoner Bot", value: numeric(pServer?.players), priority: 1 },
     { source: "Prisoner Bot Players", value: pPlayers.length || null, priority: 1 },
     { source: "GAMEMONITORING Players", value: gm?.playersOk ? gmPlayers.length : null, priority: 2 },
@@ -285,7 +359,7 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
     { source: "GS4u", value: numeric(gServer?.players), priority: 4 }
   ].filter(item => Number.isFinite(item.value));
 
-  const prisonerCandidates = countCandidates.filter(item => item.priority === 1);
+  const prisonerCandidates = countCandidates.filter(item => item.priority <= 1);
   const currentPlayers = prisonerCandidates.length
     ? Math.max(...prisonerCandidates.map(item => item.value))
     : countCandidates.length
@@ -298,8 +372,8 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
 
   const version = gmServer?.version || pServer?.version || null;
   const ping = numeric(gm?.responseMs);
-  const playerList = pPlayers.length ? pPlayers : (gm?.playersOk ? gmPlayers : []);
-  const playerListSource = pPlayers.length ? "Prisoner Bot Public API" : (gm?.playersOk && gmPlayers.length ? "GAMEMONITORING" : "Keine Live-Namensquelle");
+  const playerList = commandPlayers.length ? commandPlayers : (pPlayers.length ? pPlayers : (gm?.playersOk ? gmPlayers : []));
+  const playerListSource = commandPlayers.length ? "Prisoner Bot RCON Command" : (pPlayers.length ? "Prisoner Bot Public API" : (gm?.playersOk && gmPlayers.length ? "GAMEMONITORING" : "Keine Live-Namensquelle"));
 
   const online = pServer?.online === true
     ? true
@@ -329,6 +403,11 @@ function mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime) {
       prisonerBotConfigured: Boolean(prisonerServer?.ok || prisonerPlayers?.ok || kills?.ok || playtime?.ok),
       prisonerBotServerStatus: prisonerServer?.status ?? null,
       prisonerBotPlayersStatus: prisonerPlayers?.status ?? null,
+      prisonerBotCommandOk: Boolean(prisonerCommand?.ok),
+      prisonerBotCommandStatus: prisonerCommand?.status ?? null,
+      prisonerBotCommandPath: prisonerCommand?.path ?? null,
+      prisonerBotCommandField: prisonerCommand?.field ?? null,
+      prisonerBotCommandError: prisonerCommand?.error ?? null,
       prisonerBotServerError: prisonerServer?.error ?? null,
       prisonerBotPlayersError: prisonerPlayers?.error ?? null
     },
@@ -368,15 +447,16 @@ export default {
     if (url.pathname === "/api/live") {
       return cachedJson("live-v3", async () => {
         const started = Date.now();
-        const [gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime] = await Promise.all([
+        const [gm, gs4u, prisonerServer, prisonerPlayers, prisonerCommand, kills, playtime] = await Promise.all([
           gameMonitoringFetch(),
           gs4uFetch(),
           prisonerFetch(env, PATHS.server),
           prisonerFetch(env, PATHS.players),
+          prisonerCommandFetch(env, PRISONER_LIST_COMMAND),
           prisonerFetch(env, PATHS.kills),
           prisonerFetch(env, PATHS.playtime)
         ]);
-        const server = mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, kills, playtime);
+        const server = mergeLive(gm, gs4u, prisonerServer, prisonerPlayers, prisonerCommand, kills, playtime);
         return {
           ok: Boolean(gm.ok || gs4u.ok || prisonerServer.ok || prisonerPlayers.ok),
           timestamp: new Date().toISOString(),
@@ -385,7 +465,7 @@ export default {
           sources: {
             gameMonitoring: { ok: Boolean(gm.ok), playersOk: Boolean(gm.playersOk), responseMs: gm.responseMs },
             gs4u: Boolean(gs4u.ok),
-            prisonerBot: Boolean(prisonerServer.ok || prisonerPlayers.ok || kills.ok || playtime.ok)
+            prisonerBot: Boolean(prisonerServer.ok || prisonerPlayers.ok || prisonerCommand.ok || kills.ok || playtime.ok)
           }
         };
       }, LIVE_CACHE_MS);
@@ -434,6 +514,23 @@ export default {
         source: prisonerPlayers.ok ? "Prisoner Bot Public API" : (gm.playersOk ? "GAMEMONITORING" : "Nicht verfügbar"),
         count: players.length,
         players
+      });
+    }
+
+    if (url.pathname === "/api/prisoner-command-test") {
+      const result = await prisonerCommandFetch(env, PRISONER_LIST_COMMAND);
+      return json({
+        ok: result.ok,
+        source: "Prisoner Bot Public API → RCON",
+        command: PRISONER_LIST_COMMAND,
+        configured: Boolean(env.PRISONER_API_TOKEN),
+        path: result.path ?? null,
+        field: result.field ?? null,
+        status: result.status ?? null,
+        responseMs: result.responseMs ?? null,
+        players: result.ok ? parseCommandPlayers(result) : [],
+        raw: result.data ?? result.text ?? null,
+        error: result.error ?? null
       });
     }
 
