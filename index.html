@@ -1,1 +1,160 @@
 <!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shadow Forge — SCUM Server</title>
+<meta name="description" content="Shadow Forge SCUM Server — PvE/PvP, Events, 3x Loot, Welcome Pack & Discord.">
+<meta name="theme-color" content="#0b0710">
+<style>
+:root{
+  --bg:#07050a;--bg2:#0d0812;--panel:rgba(18,11,24,.84);--panel2:rgba(25,15,34,.9);
+  --line:rgba(191,106,255,.24);--line2:rgba(255,255,255,.08);--violet:#b86aff;--violet2:#7d3fb0;
+  --text:#f7f0fb;--muted:#aaa0b4;--green:#69efaa;--red:#ff657d;--gold:#e9c46a;
+  --shadow:0 24px 70px rgba(0,0,0,.42);--max:1480px;
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:radial-gradient(circle at 50% -12%,rgba(184,106,255,.22),transparent 35%),radial-gradient(circle at 0 30%,rgba(125,63,176,.13),transparent 30%),linear-gradient(180deg,#09070c 0,#050407 70%,#0a0610 100%);min-height:100vh}body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.13;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,#000,transparent 72%)}a{color:inherit;text-decoration:none}.container{width:min(var(--max),92%);margin:auto}.nav{position:sticky;top:0;z-index:20;background:rgba(7,5,10,.78);backdrop-filter:blur(18px);border-bottom:1px solid var(--line2)}.nav-inner{height:72px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:12px;font-weight:950;letter-spacing:.12em}.brand-mark{width:36px;height:36px;border:1px solid var(--line);display:grid;place-items:center;background:radial-gradient(circle,rgba(184,106,255,.28),rgba(184,106,255,.04));box-shadow:0 0 25px rgba(184,106,255,.14)}.brand-mark:before{content:"✦";color:var(--violet)}.nav-links{display:flex;gap:22px;color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.nav-links a:hover{color:var(--text)}.hero{padding:76px 0 42px}.hero-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:26px;align-items:stretch}.eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--violet);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.25em}.hero h1{font-size:clamp(52px,8vw,112px);line-height:.83;margin:17px 0 20px;letter-spacing:.035em;text-shadow:0 0 42px rgba(184,106,255,.28)}.hero h1 span{display:block;color:#fff}.hero h1 strong{color:var(--violet);font-weight:950}.hero-copy{max-width:720px;color:var(--muted);font-size:18px;line-height:1.65}.chips{display:flex;flex-wrap:wrap;gap:9px;margin:26px 0}.chip{border:1px solid var(--line);background:rgba(184,106,255,.06);padding:9px 12px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em}.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 18px;border:1px solid var(--line);font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.1em}.btn.primary{background:linear-gradient(135deg,#b86aff,#743aa6);border-color:rgba(255,255,255,.18);box-shadow:0 12px 30px rgba(126,59,175,.24)}.btn.ghost{background:rgba(255,255,255,.025)}.hero-panel,.card{border:1px solid var(--line);background:linear-gradient(145deg,rgba(27,16,36,.92),rgba(10,7,13,.9));box-shadow:var(--shadow)}.hero-panel{padding:24px;position:relative;overflow:hidden}.hero-panel:after{content:"";position:absolute;width:300px;height:300px;right:-150px;top:-170px;border-radius:50%;background:rgba(184,106,255,.12);filter:blur(2px)}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;position:relative;z-index:1}.status{display:flex;align-items:center;gap:9px;font-weight:950;letter-spacing:.1em;font-size:12px}.dot{width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 16px rgba(255,101,125,.65)}.dot.online{background:var(--green);box-shadow:0 0 18px rgba(105,239,170,.75)}.live-tag{font-size:9px;color:var(--muted);letter-spacing:.13em;text-transform:uppercase}.server-name{font-size:27px;font-weight:950;margin-top:28px}.server-sub{color:var(--muted);font-size:12px;margin-top:5px}.big-players{display:flex;align-items:flex-end;gap:10px;margin:28px 0 20px}.big-players .num{font-size:58px;font-weight:950;line-height:.8}.big-players .max{font-size:18px;color:var(--muted);padding-bottom:5px}.progress{height:8px;background:rgba(255,255,255,.06);overflow:hidden}.progress span{display:block;height:100%;width:0;background:linear-gradient(90deg,#7d3fb0,#c77aff);box-shadow:0 0 18px rgba(184,106,255,.5);transition:width .4s}.micro-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.micro{padding:12px;border:1px solid var(--line2);background:rgba(255,255,255,.02)}.micro small{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.12em}.micro b{display:block;margin-top:5px;font-size:13px}.section{padding:36px 0}.section-title{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:18px}.section-title h2{margin:0;font-size:27px;letter-spacing:.03em}.section-title p{margin:5px 0 0;color:var(--muted);font-size:12px}.section-kicker{color:var(--violet);font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.2em}.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stat{padding:20px;border:1px solid var(--line2);background:rgba(255,255,255,.025)}.stat small{color:var(--muted);font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.13em}.stat strong{display:block;margin-top:10px;font-size:28px}.two-col{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.card{padding:23px}.card h3{margin:0;font-size:19px}.muted{color:var(--muted)}.player-list,.leaderboard{display:flex;flex-direction:column;gap:8px;margin-top:16px}.player,.rank-row{display:grid;align-items:center;border:1px solid var(--line2);background:rgba(255,255,255,.025)}.player{grid-template-columns:1fr;min-height:62px;padding:15px 20px;position:relative;overflow:hidden;isolation:isolate;animation:survivorIn .55s cubic-bezier(.2,.75,.25,1) both}.player:nth-child(2){animation-delay:.05s}.player:nth-child(3){animation-delay:.1s}.player:nth-child(4){animation-delay:.15s}.player:nth-child(5){animation-delay:.2s}.player:nth-child(n+6){animation-delay:.25s}.player:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--green);box-shadow:0 0 16px rgba(105,239,170,.55);z-index:-1}.player:after{content:"";position:absolute;inset:-80% -20%;background:linear-gradient(110deg,transparent 42%,rgba(184,106,255,.16) 49%,rgba(255,255,255,.2) 50%,rgba(184,106,255,.16) 51%,transparent 58%);transform:translateX(-70%);animation:survivorScan 4.8s ease-in-out infinite;pointer-events:none;z-index:-1}.player:hover{border-color:rgba(105,239,170,.38);background:linear-gradient(90deg,rgba(105,239,170,.07),rgba(184,106,255,.08),rgba(255,255,255,.025));box-shadow:0 0 28px rgba(105,239,170,.12),inset 0 0 24px rgba(184,106,255,.05);transform:translateX(5px)}.player-name{font-weight:950;font-size:16px;letter-spacing:.025em;text-shadow:0 0 12px rgba(105,239,170,.22);position:relative;display:inline-block}.player-name:after{content:"";position:absolute;left:0;right:0;bottom:-5px;height:1px;background:linear-gradient(90deg,rgba(105,239,170,.75),rgba(184,106,255,.45),transparent);transform-origin:left;animation:namePulse 2.6s ease-in-out infinite}.player:has(.player-name):before{animation:onlinePulse 1.8s ease-in-out infinite}.player-main,.player-name-row,.online-badge,.player-meta,.player-stats,.player-side,.player-ping,.player-rank{min-width:0}.player-name-row{display:flex;align-items:center}.online-badge,.player-meta,.player-stats,.player-side{display:none}.rank-row{grid-template-columns:42px 1fr auto;padding:12px}.rank{color:var(--violet);font-weight:950}.rank-name{font-weight:800}.rank-value{font-weight:950}.empty{padding:18px 0;color:var(--muted);font-size:12px}.player-list .player-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@keyframes survivorIn{from{opacity:0;transform:translateY(10px) scale(.985);filter:blur(3px)}to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}}@keyframes onlinePulse{0%,100%{opacity:.65;box-shadow:0 0 10px rgba(105,239,170,.2)}50%{opacity:1;box-shadow:0 0 24px rgba(105,239,170,.72)}}@keyframes survivorScan{0%,35%{transform:translateX(-70%);opacity:0}50%{opacity:1}75%,100%{transform:translateX(70%);opacity:0}}@keyframes namePulse{0%,100%{opacity:.35;transform:scaleX(.65)}50%{opacity:1;transform:scaleX(1)}}.rank-row{grid-template-columns:42px 1fr auto;padding:12px}.rank{color:var(--violet);font-weight:950}.rank-name{font-weight:800}.rank-value{font-weight:950}.empty{padding:18px 0;color:var(--muted);font-size:12px}.feature-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.feature{padding:20px;border:1px solid var(--line2);background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.015))}.feature-icon{font-size:22px}.feature h4{margin:12px 0 6px;font-size:14px}.feature p{margin:0;color:var(--muted);font-size:11px;line-height:1.6}.events{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.event{min-height:170px;padding:20px;border:1px solid var(--line);background:radial-gradient(circle at 90% 0,rgba(184,106,255,.12),transparent 45%),rgba(255,255,255,.025)}.event .tag{font-size:9px;color:var(--violet);font-weight:950;letter-spacing:.15em;text-transform:uppercase}.event h3{margin:14px 0 8px;font-size:18px}.event p{color:var(--muted);font-size:11px;line-height:1.6}.connect{display:grid;grid-template-columns:1fr auto;gap:25px;align-items:center;padding:28px;border:1px solid var(--line);background:linear-gradient(135deg,rgba(184,106,255,.12),rgba(255,255,255,.02))}.connect h2{margin:0 0 7px}.address{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#e9d8f7;font-size:14px}.footer{margin-top:60px;border-top:1px solid var(--line2);padding:30px 0 46px;color:var(--muted);font-size:11px;line-height:1.7}.footer strong{color:var(--text)}.source-line{display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:var(--muted);font-size:10px}.source-dot{width:7px;height:7px;border-radius:50%;background:var(--green)}.source-dot.off{background:var(--red)}.toast{position:fixed;right:20px;bottom:20px;z-index:30;display:none;padding:12px 14px;border:1px solid var(--line);background:#120c18;box-shadow:var(--shadow);font-size:11px}.toast.show{display:block}@media(max-width:1000px){.hero-grid,.two-col{grid-template-columns:1fr}.feature-grid{grid-template-columns:repeat(2,1fr)}.events{grid-template-columns:1fr 1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.nav-links{display:none}.hero{padding-top:48px}.hero h1{font-size:58px}.hero-copy{font-size:15px}.stats-grid,.feature-grid,.events{grid-template-columns:1fr}.connect{grid-template-columns:1fr}.card,.hero-panel{padding:18px}.section-title{display:block}.micro-grid{grid-template-columns:1fr}.player{grid-template-columns:1fr}.player-side{align-items:flex-start;flex-direction:row;justify-content:space-between}.player-meta{white-space:normal}}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="container nav-inner"><a class="brand" href="#top"><span class="brand-mark"></span><span>SHADOW FORGE</span></a><div class="nav-links"><a href="#live">Live</a><a href="#survivors">Survivors</a><a href="#killfeed">Killfeed</a><a href="#leaderboards">Rankings</a><a href="#events">Events</a><a href="#connect">Join</a></div></div></nav>
+
+<main id="top">
+<section class="hero"><div class="container hero-grid"><div><div class="eyebrow">✦ Play · Survive · Forge</div><h1>SHADOW <span><strong>FORGE</strong></span></h1><p class="hero-copy">Ein düsterer SCUM-Server für Survivors, Builder, PvP-Fans und Eventjäger. PvE/PvP, Events, 3x Loot, Welcome Pack und eine Community, die ihren eigenen Weg schmiedet.</p><div class="chips"><span class="chip">PvE / PvP</span><span class="chip">Events</span><span class="chip">3x Loot</span><span class="chip">Welcome Pack</span><span class="chip">GER / ENG</span></div><div class="hero-actions"><a class="btn primary" id="discordHero" href="#connect" target="_blank" rel="noopener">Discord öffnen</a><a class="btn ghost" href="#live">Serverstatus ansehen</a></div></div>
+<div class="hero-panel" id="live"><div class="panel-head"><div class="status"><span id="statusDot" class="dot"></span><span id="statusText">STATUS WIRD GELADEN</span></div><div class="live-tag">Live Monitor</div></div><div class="server-name" id="serverName">SHADOW FORGE</div><div class="server-sub" id="serverSubtitle">[GER/ENG] · PvE/PvP · EVENTS · 3x LOOT</div><div class="big-players"><div class="num" id="heroPlayers">—</div><div class="max">/ <span id="heroSlots">—</span> Survivors</div></div><div class="progress"><span id="playerBar"></span></div><div class="micro-grid"><div class="micro"><small>Monitor Ping</small><b id="heroPing">—</b></div><div class="micro"><small>Version</small><b id="heroVersion">—</b></div><div class="micro"><small>Map</small><b id="heroMap">Island Map</b></div><div class="micro"><small>Live Status</small><b id="heroSource">—</b></div></div><div class="source-line" style="margin-top:17px"><span id="querySourceDot" class="source-dot"></span><span id="sourceText">Live-Daten werden geladen</span><span>·</span><span>Update <b id="lastUpdate">—</b></span></div></div></div></section>
+
+<section class="section"><div class="container"><div class="stats-grid"><div class="stat"><small>Survivors Online</small><strong id="statPlayers">—</strong></div><div class="stat"><small>Server Slots</small><strong id="statSlots">60</strong></div><div class="stat"><small>Monitor Ping</small><strong id="statPing">—</strong></div><div class="stat"><small>Version</small><strong id="statVersion">—</strong></div></div></div></section>
+
+<section class="section" id="survivors"><div class="container"><div class="section-title"><div><div class="section-kicker">Live Community</div><h2>Survivors</h2><p>Live-Spieler werden direkt über Prisoner Bot RCON aus SCUM abgerufen.</p></div><div class="source-line"><span id="playerSourceDot" class="source-dot"></span><span id="playerSource">Quelle: —</span></div></div><div class="card"><div id="playerList" class="player-list"><div class="empty">Lade Survivors …</div></div></div></div></section>
+
+<section class="section" id="killfeed"><div class="container"><div class="section-title"><div><div class="section-kicker">The Forge remembers</div><h2>Live Killfeed</h2><p>Frische Kills aus dem Prisoner-Bot-Webhook — inklusive NPC-Kills, wenn sie gemeldet werden.</p></div><div class="live-tag">Auto Refresh</div></div><div class="card"><div id="killfeedList" class="leaderboard"><div class="empty">Lade Killfeed …</div></div></div></div></section>
+<section class="section" id="leaderboards"><div class="container"><div class="section-title"><div><div class="section-kicker">The Forge remembers</div><h2>Leaderboards</h2><p>Kills und Playtime aus der Prisoner-Bot Public API.</p></div></div><div class="two-col"><div class="card"><h3>☠️ Top Kills</h3><div id="kills" class="leaderboard"><div class="empty">Lade Ranking …</div></div></div><div class="card"><h3>⏳ Playtime</h3><div id="playtime" class="leaderboard"><div class="empty">Lade Ranking …</div></div></div></div></div></section>
+
+<section class="section"><div class="container"><div class="section-title"><div><div class="section-kicker">What awaits you</div><h2>Shadow Forge Features</h2><p>Der Server ist mehr als nur ein Join-Button.</p></div></div><div class="feature-grid"><div class="feature"><div class="feature-icon">⚒️</div><h4>3x Loot</h4><p>Mehr Loot, mehr Möglichkeiten, weniger endloses Suchen.</p></div><div class="feature"><div class="feature-icon">☾</div><h4>PvE / PvP</h4><p>Gemeinsam bauen und überleben – mit Bereichen und Events für Action.</p></div><div class="feature"><div class="feature-icon">♜</div><h4>Events</h4><p>Regelmäßige Server-Events bringen Bewegung in die Welt.</p></div><div class="feature"><div class="feature-icon">✦</div><h4>Welcome Pack</h4><p>Neue Survivors bekommen einen direkten Start in die Shadow-Forge-Welt.</p></div></div></div></section>
+
+<section class="section" id="events"><div class="container"><div class="section-title"><div><div class="section-kicker">Enter the darkness</div><h2>Events</h2><p>Geplante und spontane Aktionen rund um Shadow Forge.</p></div></div><div class="events"><article class="event"><div class="tag">Warzone</div><h3>Purge Night</h3><p>Eine besondere PvP-Nacht mit eigener Event-Atmosphäre. Basen und Fahrzeuge bleiben geschützt.</p></article><article class="event"><div class="tag">Community</div><h3>Shadow Forge Events</h3><p>Community-Aktionen, Challenges und gemeinsame Server-Momente – angekündigt über Discord.</p></article><article class="event"><div class="tag">World</div><h3>Explore & Build</h3><p>Entdecke unsere Orte, baue deine Geschichte und hinterlasse deine Spuren in der Forge.</p></article></div></div></section>
+
+<section class="section" id="connect"><div class="container"><div class="connect"><div><div class="section-kicker">Ready to survive?</div><h2>Join Shadow Forge</h2><div class="address" id="connectAddress">176.57.174.127:28202</div><div class="muted" style="font-size:11px;margin-top:8px">Server Connect · [GER/ENG] · PvE/PvP · Community auf Discord</div></div><div class="hero-actions" style="margin:0"><button class="btn primary" id="copyBtn" type="button">Adresse kopieren</button><a class="btn ghost" id="discordJoin" href="#connect" target="_blank" rel="noopener">Discord</a></div></div></div></section>
+</main>
+
+<footer class="footer"><div class="container"><strong>SHADOW FORGE</strong> · SCUM SERVER<br>[GER/ENG] · PvE/PvP · EVENTS · 3x LOOT · WELCOMEPACK · DISCORD<br><span>Live data refresh: 20s · RCON-Live-Daten werden serverseitig über Prisoner Bot verarbeitet.</span></div></footer>
+<div id="toast" class="toast"></div>
+
+<script>
+const REFRESH_MS = 20000;
+const $ = id => document.getElementById(id);
+const esc = value => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+const fmt = (value, fallback='—') => value === null || value === undefined || value === '' ? fallback : String(value);
+
+function setStatus(online){
+  $('statusDot').classList.toggle('online', online);
+  $('statusText').textContent = online ? 'SERVER ONLINE' : 'SERVER OFFLINE';
+}
+function showToast(text){
+  $('toast').textContent = text;
+  $('toast').classList.add('show');
+  setTimeout(() => $('toast').classList.remove('show'), 2200);
+}
+function renderPlayers(data){
+  const list = Array.isArray(data?.server?.playerList) ? data.server.playerList : [];
+  $('playerSource').textContent = `Quelle: ${fmt(data?.server?.playerListSource)} · Live Count: ${fmt(data?.server?.liveSource)}`;
+  $('playerSourceDot').classList.toggle('off', !list.length && !(data?.server?.players > 0));
+  if(!list.length){
+    $('playerList').innerHTML = `<div class="empty">Aktuell sind keine Live-Spielernamen verfügbar. Der Survivor-Zähler kann trotzdem aktuell sein.</div>`;
+    return;
+  }
+  $('playerList').innerHTML = list.slice(0,40).map((p)=>{
+    const obj = typeof p === 'object' ? p : {name:p};
+    const name = obj.name || obj.playerName || 'Unknown Survivor';
+    return `<div class="player"><div class="player-name">${esc(name)}</div></div>`;
+  }).join('');
+}
+function renderRanking(id, rows, suffix=''){
+  const box = $(id);
+  if(!Array.isArray(rows) || !rows.length){ box.innerHTML = '<div class="empty">Noch keine Daten verfügbar.</div>'; return; }
+  box.innerHTML = rows.slice(0,10).map((r,i)=>`<div class="rank-row"><div class="rank">#${esc(r.rank || i+1)}</div><div class="rank-name">${esc(r.name || 'Unknown Survivor')}</div><div class="rank-value">${esc(fmt(r.value))}${suffix}</div></div>`).join('');
+}
+async function getJson(path){
+  const res = await fetch(path,{cache:'no-store',headers:{Accept:'application/json'}});
+  if(!res.ok) throw new Error(`${path} ${res.status}`);
+  return res.json();
+}
+async function loadConfig(){
+  try{
+    const config = await getJson('/api/config');
+    const url = config?.discordUrl;
+    if(url){
+      $('discordHero').href = url;
+      $('discordJoin').href = url;
+    }else{
+      $('discordHero').href = '#connect';
+      $('discordJoin').href = '#connect';
+    }
+  }catch(error){
+    console.warn('Discord config unavailable', error);
+  }
+}
+
+function renderKillfeed(rows){
+  const box=$('killfeedList');
+  if(!Array.isArray(rows)||!rows.length){box.innerHTML='<div class="empty">Noch keine Kills eingegangen.</div>';return;}
+  box.innerHTML=rows.slice(0,20).map(k=>{
+    const time=k.timestamp?new Date(k.timestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—';
+    const middle=k.weapon?` <span class="muted">· ${esc(k.weapon)}</span>`:'';
+    const sector=k.sector?` <span class="muted">· ${esc(k.sector)}</span>`:'';
+    const icon=k.npc?'☠️':'⚔️';
+    return `<div class="rank-row"><div class="rank">${icon}</div><div class="rank-name"><b>${esc(k.killerName||'Unknown')}</b> <span class="muted">→</span> <b>${esc(k.victimName||'Unknown')}</b>${middle}${sector}</div><div class="rank-value">${time}</div></div>`;
+  }).join('');
+}
+async function loadKillfeed(){
+  try{const data=await getJson('/api/killfeed');renderKillfeed(data.kills||[]);}catch(e){console.warn('Killfeed unavailable',e);renderKillfeed([]);}
+}
+async function loadLeaderboards(){
+  const [kills, playtime] = await Promise.allSettled([getJson('/api/leaderboard?type=kills'),getJson('/api/leaderboard?type=playtime')]);
+  renderRanking('kills', kills.status==='fulfilled' ? kills.value.leaderboard : []);
+  renderRanking('playtime', playtime.status==='fulfilled' ? playtime.value.leaderboard : []);
+}
+async function loadLive(){
+  const started = performance.now();
+  try{
+    const data = await getJson('/api/live');
+    const apiMs = data.responseMs ?? Math.round(performance.now()-started);
+    const s = data.server || {};
+    const players = s.players;
+    const slots = s.maxPlayers ?? 60;
+    setStatus(Boolean(s.online));
+    $('heroPlayers').textContent = fmt(players);
+    $('heroSlots').textContent = fmt(slots);
+    $('statPlayers').textContent = fmt(players);
+    $('statSlots').textContent = fmt(slots);
+    $('heroPing').textContent = s.ping == null ? '—' : `${s.ping} ms`;
+    $('statPing').textContent = s.ping == null ? '—' : `${s.ping} ms`;
+    $('statVersion').textContent = fmt(s.version);
+    $('heroVersion').textContent = fmt(s.version);
+    $('heroMap').textContent = fmt(s.map);
+    $('heroSource').textContent = fmt(s.liveSource, 'Live Monitor');
+    $('serverName').textContent = fmt(s.hostname, 'SHADOW FORGE');
+    $('playerBar').style.width = players != null && slots ? `${Math.min(100,Math.max(0,(players/slots)*100))}%` : '0%';
+    $('lastUpdate').textContent = new Date(data.timestamp || Date.now()).toLocaleTimeString('de-DE');
+    const monitorOk = Boolean(data.sources?.gameMonitoring?.ok);
+    $('querySourceDot').classList.toggle('off', !monitorOk);
+    $('sourceText').textContent = s.liveSource ? `Live-Daten · ${s.liveSource}` : 'Live-Daten werden geladen';
+    renderPlayers(data);
+  }catch(error){
+    console.error(error);
+    setStatus(false);
+    $('querySourceDot').classList.add('off');
+    $('sourceText').textContent = 'Live API nicht erreichbar';
+    $('lastUpdate').textContent = 'Fehler';
+  }
+}
+$('copyBtn').addEventListener('click', async()=>{
+  try{ await navigator.clipboard.writeText('176.57.174.127:28202'); showToast('Serveradresse kopiert ✦'); }
+  catch{ showToast('Serveradresse: 176.57.174.127:28202'); }
+});
+async function refresh(){ await Promise.allSettled([loadLive(),loadLeaderboards(),loadKillfeed(),loadConfig()]); }
+refresh();
+setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>
